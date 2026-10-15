@@ -1,0 +1,90 @@
+# Controlled vocabularies for tagging the corpus.
+#
+# Every value is a case-insensitive Python regex matched against "title + abstract".
+# TOML literal strings (single quotes) are used so backslashes need no escaping.
+# Edit freely: tags are recomputed from scratch on every run, so a vocabulary change
+# propagates to the whole corpus, not just to new papers.
+#
+# schema_version 1 = the vocabulary used for the original 700-paper corpus.
+# schema_version 2 = adds the Lindbladian/open-system family and fixes the
+#                    lattice-Boltzmann miss in the Boltzmann PDE target.
+schema_version = 2
+
+# ---------------------------------------------------------------------------
+# Relevance screen. A record is kept if it matches quantum_terms AND pde_terms
+# and its TITLE does not match hard_exclude. This is deterministic and is the
+# screen that produced the published 700-paper corpus.
+# ---------------------------------------------------------------------------
+[screen]
+quantum_terms = '(quantum (algorithm|comput|circuit|register|processor|hardware|subroutine|solver|advantage|speedup|simulat|annea|linear|state prep|amplitude)|qubit|HHL|QLSA|QSVT|quantum signal processing|block[- ]encod|variational quantum|VQE|VQA|QAOA|NISQ|fault[- ]tolerant|Carleman|Schr(o|\u00f6)dinger(isation|ization)|LCHS|linear combination of (unitaries|Hamiltonian)|tensor network|matrix product state|quantum[- ]inspired|annealer|amplitude (estimation|amplification)|Grover|phase estimation)'
+pde_terms = '(partial differential|differential equation|\bPDE\b|\bODE\b|Navier.?Stokes|Euler equation|Burgers|advection|diffusion equation|convection|Poisson equation|Laplace equation|heat equation|wave equation|Boltzmann|fluid|flow field|turbulen|\bCFD\b|linear system|finite (difference|element|volume)|Maxwell|magnetohydrodynam|hydrodynam|reaction.?diffusion|Fokker.?Planck|Black.?Scholes|elasticity|aerodynam|porous media|shallow water|Vlasov|kinetic equation|transport equation|numerical (solver|simulation|scheme)|discretis|discretiz)'
+hard_exclude = '(No Drama|AInsteinBench|Gate Architecture via Teleportation|full adder in Ising|molecular response properties|eigensolver using variational adiabatic|chemistry in Hamiltonian-wavefunction|Multiscale Modeling: A Hierarchy|Highly Excited Eigenstates|Corrosion Modeling)'
+
+# PDE targets that make a paper "CFD-facing".
+cfd_pde_targets = [
+  "Navier-Stokes (incompressible)",
+  "Euler / compressible / shocks",
+  "Turbulence / high Reynolds",
+  "Boltzmann / kinetic / Vlasov",
+  "Burgers / model nonlinear",
+  "Advection-diffusion / transport",
+]
+
+# ---------------------------------------------------------------------------
+# Algorithm families
+# ---------------------------------------------------------------------------
+[algorithm_families]
+"QLSA (HHL-lineage linear solvers)" = '(\bHHL\b|Harrow.?Hassidim|quantum linear system|QLSA|linear systems? (algorithm|solver)|variable.?time amplitude amplification)'
+"QSVT / QSP / block-encoding" = '(QSVT|quantum singular value transform|quantum signal processing|quantum eigenvalue transform|block.?encod)'
+"LCU / LCHS" = '(linear combination of unitaries|\bLCU\b|\bLCHS\b|linear combination of Hamiltonian simulation)'
+"Schrodingerisation / unitary dilation" = '(Schr(o|\u00f6)dinger(isation|ization)|warped phase transform|unitary dilation|dilation (method|technique)|Schr(o|\u00f6)dingeris)'
+"Lindbladian / open-system embedding" = '(Lindblad|\bGKSL\b|Gorini.?Kossakowski|open quantum system|dissipative (engineering|map|channel|process)|Kraus (operator|map|representation)|Stinespring|density matrix encoding|completely positive trace)'
+"Time-marching / Taylor / Dyson ODE solvers" = '(time.?marching|truncated Taylor|Dyson series|uniform singular value amplification|spectral method for (ODE|differential))'
+"Carleman / Koopman linear embedding" = '(Carleman|Koopman.?von Neumann|\bKvN\b|Koopman operator|linear embedding|level.?set method)'
+"Variational / VQA / quantum ML" = '(variational quantum|\bVQA\b|\bVQE\b|\bQAOA\b|ansatz|parameteri[sz]ed quantum circuit|parametri[sz]ed quantum circuit|quantum neural|physics.?informed quantum|differentiable quantum|quantum machine learning|quantum kernel)'
+"Quantum lattice Boltzmann / lattice gas" = '(lattice Boltzmann|lattice gas|\bQLBM\b|Carleman.?lattice|collision.{0,25}streaming|streaming.{0,25}collision)'
+"Quantum annealing / QUBO" = '(quantum anneal|annealer|\bQUBO\b|D.?Wave|Ising machine)'
+"Tensor networks / quantum-inspired" = '(tensor network|matrix product state|\bMPS\b|quantum.?inspired|tensor train|quantics|quantized tensor)'
+"Analog / continuous-variable / Hamiltonian embedding" = '(continuous.?variable|analog quantum|qumode|photonic processor|Hamiltonian embedding|neutral atom analog)'
+"Nonlinear via measurement / homotopy / perturbation" = '(repeated measurement|homotopy|quantum perturbation|mean.?field linear|nonlinear.{0,25}(post.?selection|measurement feedback))'
+"Quantum walk" = 'quantum walk'
+"Amplitude estimation / Grover readout" = '(amplitude estimation|amplitude amplification|Grover)'
+
+# ---------------------------------------------------------------------------
+# PDE targets
+# ---------------------------------------------------------------------------
+[pde_targets]
+"Navier-Stokes (incompressible)" = '(incompressible Navier.?Stokes|Navier.?Stokes)'
+"Euler / compressible / shocks" = '(Euler equations?|compressible flow|shock (wave|capturing|tube)|transonic|supersonic|hypersonic)'
+"Burgers / model nonlinear" = '(Burgers|Kuramoto.?Sivashinsky|Korteweg|\bKdV\b|Allen.?Cahn|nonlinear model equation)'
+"Advection-diffusion / transport" = '(advection.?diffusion|convection.?diffusion|transport equation|linear advection|scalar transport)'
+"Poisson / Laplace / elliptic" = '(Poisson equation|Laplace equation|elliptic (PDE|equation|problem)|pressure Poisson)'
+"Heat / parabolic" = '(heat equation|parabolic (PDE|equation)|thermal diffusion|diffusion equation)'
+"Wave / hyperbolic / acoustics" = '(wave equation|hyperbolic (PDE|system|equation)|acoustic|seismic|Helmholtz)'
+"Maxwell / electromagnetics" = '(Maxwell|electromagnetic (field|wave|simulation)|\bFDTD\b)'
+"Boltzmann / kinetic / Vlasov" = '(Boltzmann equation|lattice Boltzmann|kinetic equation|Vlasov|BGK|Fokker.?Planck|radiative transfer)'
+"MHD / plasma" = '(magnetohydrodynam|\bMHD\b|plasma (physics|equilibrium|simulation)|Grad.?Shafranov)'
+"Reaction-diffusion / chemistry transport" = '(reaction.?diffusion|combustion|chemical kinetics|species transport)'
+"Elasticity / structural / solid" = '(elasticity|structural (analysis|mechanics)|elastodynam|beam|plate bending|topology optimi)'
+"Finance / Black-Scholes" = '(Black.?Scholes|option pricing|financial derivative)'
+"Generic linear ODE/PDE systems" = '(system of (linear )?(ordinary )?differential equations|general (linear )?(ODE|PDE)|dissipative linear)'
+"Turbulence / high Reynolds" = '(turbulen|Reynolds number|\bRANS\b|\bLES\b|direct numerical simulation|\bDNS\b|Kolmogorov (flow|spectrum))'
+
+# ---------------------------------------------------------------------------
+# Capability axes — the gap-map dimensions
+# ---------------------------------------------------------------------------
+[capability_axes]
+"State preparation / data loading" = '(state preparation|initial (state|condition) (preparation|loading|encoding)|data loading|amplitude encoding cost|QRAM|\bqRAM\b)'
+"Readout / observable extraction" = '(read.?out|observable (extraction|estimation)|tomograph|measurement (cost|overhead)|extract(ing)? (the )?(solution|information)|output problem|sampling overhead)'
+"Boundary conditions" = '(boundary condition|Dirichlet|Neumann|periodic boundar|no.?slip|inflow|outflow|immersed boundary)'
+"Nonlinearity handling" = '(nonlinear(ity|ities)?|quadratic (nonlinear|term)|convective term|advective nonlinear)'
+"Explicit resource estimate (qubits/T-gates)" = '(resource estimat|\bT.?(gate|count|depth)\b|logical qubit|gate count|circuit depth of|CNOT count|fault.?toleran\w* resource|qubit count)'
+"Condition number / preconditioning" = '(condition number|preconditio|ill.?conditioned|spectral (norm|gap) scaling|\bkappa\b)'
+"Error / convergence analysis" = '(error (bound|analysis|estimate)|convergence (rate|analysis|proof)|truncation error|a priori (bound|estimate)|stability analysis|consistency)'
+"Classical baseline comparison" = '(compared? (to|with|against) (the )?(classical|state.?of.?the.?art|conventional)|classical (baseline|counterpart|solver|benchmark)|speedup over classical|crossover point|end.?to.?end (comparison|advantage)|practical (quantum )?advantage)'
+"Hardware execution (real QPU)" = '(\bIBM\b|Quantinuum|IonQ|Rigetti|D.?Wave|trapped.?ion (device|processor|hardware)|superconducting (device|processor|qubits? hardware)|real (quantum )?(hardware|device)|on.?chip photonic|QPU|quantum processor)'
+"2D / 3D spatial problems" = '(two.?dimensional|\b2D\b|three.?dimensional|\b3D\b)'
+"Complex geometry / unstructured mesh" = '(unstructured (mesh|grid)|complex geometr|curvilinear|body.?fitted|adaptive mesh|immersed boundary|arbitrary geometr)'
+"Long-time / time-dependent integration" = '(long.?time|time.?dependent|time integration|temporal evolution|time steps?)'
+"Noise / error mitigation on NISQ" = '(noise (model|resilien|robust)|error mitigation|decoheren|shot noise|barren plateau)'
+"Multiphysics / coupling to classical solver" = '(hybrid (quantum.?classical )?(solver|workflow|loop)|coupl(ing|ed) (to|with) (a )?classical|multiphysics|co.?simulation|embedded in a classical)'

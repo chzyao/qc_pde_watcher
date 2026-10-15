@@ -1,0 +1,42 @@
+# arXiv API search_query strings, run once per update.
+#
+# Syntax: http://export.arxiv.org/api_help/docs/user-manual.html
+# `abs:` searches the abstract. Quoted phrases are matched as phrases.
+# Adding a query is cheap (one extra HTTP round trip + the politeness delay);
+# the harvester de-duplicates on arXiv ID and records which queries matched.
+
+queries = [
+  'abs:"quantum algorithm" AND abs:"partial differential equation"',
+  'abs:"quantum algorithms" AND abs:"differential equations"',
+  'abs:"quantum" AND abs:"Navier-Stokes"',
+  'abs:"quantum" AND abs:"lattice Boltzmann"',
+  'abs:"quantum linear system" OR abs:"quantum linear systems algorithm"',
+  'abs:"Carleman linearization"',
+  'abs:"Schrodingerisation" OR abs:"Schrodingerization"',
+  'abs:"quantum computing" AND abs:"computational fluid dynamics"',
+  'abs:"quantum computing" AND abs:"fluid dynamics"',
+  'abs:"variational quantum" AND abs:"differential equation"',
+  'abs:"quantum" AND abs:"Burgers equation"',
+  'abs:"quantum algorithm" AND abs:"nonlinear differential equations"',
+  'abs:"quantum" AND abs:"Poisson equation" AND abs:"solver"',
+  'abs:"quantum algorithm" AND abs:"advection"',
+  'abs:"Hamiltonian simulation" AND abs:"differential equation"',
+  'abs:"quantum" AND abs:"linear advection" OR abs:"quantum" AND abs:"heat equation"',
+  'abs:"quantum" AND abs:"wave equation" AND abs:"algorithm"',
+  'abs:"quantum" AND abs:"finite difference" AND abs:"circuit"',
+  'abs:"quantum" AND abs:"finite element" AND abs:"algorithm"',
+  'abs:"quantum" AND abs:"turbulence" AND abs:"algorithm"',
+  'abs:"block encoding" AND abs:"differential"',
+  'abs:"quantum" AND abs:"Euler equations"',
+  'abs:"quantum" AND abs:"reservoir computing" AND abs:"flow"',
+  'abs:"quantum amplitude estimation" AND abs:"differential"',
+  'abs:"quantum" AND abs:"Hele-Shaw" OR abs:"quantum" AND abs:"Stokes flow"',
+  'abs:"linear combination of Hamiltonian simulation"',
+  'abs:"time-marching" AND abs:"quantum"',
+  'abs:"quantum" AND abs:"magnetohydrodynamics" AND abs:"algorithm"',
+  # Added after the first gap-map pass: the Lindbladian / open-system route was
+  # under-represented because no query targeted it directly.
+  'abs:"Lindblad" AND abs:"differential equations"',
+  'abs:"open quantum system" AND abs:"differential equation"',
+  'abs:"non-unitary" AND abs:"quantum algorithm"',
+]

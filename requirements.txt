@@ -1,0 +1,5 @@
+# Harvesting, enrichment, tagging and the HTML site need only the standard
+# library (Python >= 3.11 for tomllib). matplotlib is used solely by
+# `qpdewatch build` to render the two PNG figures; drop it and pass
+# --no-figures if you want a zero-dependency install.
+matplotlib>=3.7
