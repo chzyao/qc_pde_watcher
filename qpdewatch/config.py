@@ -11,7 +11,17 @@ CONFIG_DIR = REPO_ROOT / "config"
 DATA_DIR = REPO_ROOT / "data"
 DOCS_DIR = REPO_ROOT / "docs"
 
-TAG_FIELDS = ("algorithm_families", "pde_targets", "capability_axes")
+TAG_FIELDS = ("algorithm_families", "pde_targets", "capability_axes",
+              "document_types", "problem_settings")
+
+# Precedence for the derived single-valued `problem_class`. First match wins;
+# papers matching none fall through to "Forward (assumed)".
+PROBLEM_CLASS_ORDER = (
+    ("Inverse problem / data assimilation", "Inverse"),
+    ("PDE-constrained optimisation / control", "Optimisation / control"),
+    ("Uncertainty quantification / stochastic", "Uncertainty quantification"),
+)
+FORWARD_LABEL = "Forward (assumed)"
 
 
 @dataclass
@@ -22,6 +32,8 @@ class Vocabularies:
     algorithm_families: dict[str, re.Pattern] = field(default_factory=dict)
     pde_targets: dict[str, re.Pattern] = field(default_factory=dict)
     capability_axes: dict[str, re.Pattern] = field(default_factory=dict)
+    document_types: dict[str, re.Pattern] = field(default_factory=dict)
+    problem_settings: dict[str, re.Pattern] = field(default_factory=dict)
     cfd_pde_targets: tuple[str, ...] = ()
     quantum_terms: re.Pattern | None = None
     pde_terms: re.Pattern | None = None
@@ -44,6 +56,8 @@ def load_vocabularies(path: Path | None = None) -> Vocabularies:
         algorithm_families=compile_(raw["algorithm_families"]),
         pde_targets=compile_(raw["pde_targets"]),
         capability_axes=compile_(raw["capability_axes"]),
+        document_types=compile_(raw.get("document_types", {})),
+        problem_settings=compile_(raw.get("problem_settings", {})),
         cfd_pde_targets=tuple(screen["cfd_pde_targets"]),
         quantum_terms=re.compile(screen["quantum_terms"], re.I),
         pde_terms=re.compile(screen["pde_terms"], re.I),

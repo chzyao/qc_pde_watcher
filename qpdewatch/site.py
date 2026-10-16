@@ -1,9 +1,10 @@
 """Generate a single self-contained HTML browser for the corpus.
 
-No CDN, no build step, no framework: the data is inlined as JSON and the sorting
-and filtering is vanilla JS. The page therefore works opened straight from disk
-(file://) as well as from GitHub Pages, and keeps working when today's table
-library has had four breaking releases.
+No CDN, no build step, no framework: the data is inlined as JSON and the
+sorting, filtering, starring and TeX rendering are vanilla JS. The page
+therefore works opened straight from disk (file://) as well as from GitHub
+Pages, and keeps working when today's table library has had four breaking
+releases.
 """
 from __future__ import annotations
 
@@ -11,45 +12,59 @@ import json
 from datetime import date
 from pathlib import Path
 
+from . import favourites as favs
 from .config import DOCS_DIR, Vocabularies
 
 NEW_WINDOW_DAYS = 30
 
 
-def _pack(rows: list[dict], vocab: Vocabularies) -> dict:
+def _pack(rows: list[dict], vocab: Vocabularies, starred: dict[str, str]) -> dict:
     """Compact the rows: vocabulary terms become indices into shared name lists."""
-    fam = list(vocab.algorithm_families)
-    pde = list(vocab.pde_targets)
-    cap = list(vocab.capability_axes)
-    idx = ({n: i for i, n in enumerate(fam)},
-           {n: i for i, n in enumerate(pde)},
-           {n: i for i, n in enumerate(cap)})
+    names = {
+        "fam": list(vocab.algorithm_families),
+        "pde": list(vocab.pde_targets),
+        "cap": list(vocab.capability_axes),
+        "doc": list(vocab.document_types),
+        "set": list(vocab.problem_settings),
+    }
+    idx = {k: {n: i for i, n in enumerate(v)} for k, v in names.items()}
     split = lambda s: [p for p in (x.strip() for x in s.split(";")) if p]
+    to_idx = lambda key, s: sorted(idx[key][x] for x in split(s) if x in idx[key])
+
     packed = []
     for r in rows:
         packed.append({
             "i": r["arxiv_id"], "d": r["published"], "t": r["title"],
-            "a": r["first_author"], "na": r["n_authors"],
+            "au": r["authors"], "na": r["n_authors"],
             "c": r["citations_crossref"], "v": r["venue"] or "",
-            "f": sorted(idx[0][x] for x in split(r["algorithm_families"]) if x in idx[0]),
-            "p": sorted(idx[1][x] for x in split(r["pde_targets"]) if x in idx[1]),
-            "x": sorted(idx[2][x] for x in split(r["capability_axes"]) if x in idx[2]),
+            "f": to_idx("fam", r["algorithm_families"]),
+            "p": to_idx("pde", r["pde_targets"]),
+            "x": to_idx("cap", r["capability_axes"]),
+            "dt": to_idx("doc", r["document_types"]),
+            "ps": to_idx("set", r["problem_settings"]),
+            "pc": r["problem_class"],
+            "rv": 1 if r["is_review"] else 0,
             "q": 1 if r["cfd_facing"] else 0,
             "s": r["first_seen"], "ab": r["abstract"],
         })
-    return {"rows": packed, "fam": fam, "pde": pde, "cap": cap}
+    classes = sorted({r["problem_class"] for r in rows})
+    return {"rows": packed, **names, "pclass": classes,
+            "seed": {k: v for k, v in starred.items()}}
 
 
 def build(rows: list[dict], vocab: Vocabularies, outdir: Path | None = None,
-          title: str = "Quantum algorithms for PDEs — literature watch") -> Path:
+          title: str = "Quantum algorithms for PDEs — literature watch",
+          starred: dict[str, str] | None = None) -> Path:
     outdir = outdir or DOCS_DIR
     outdir.mkdir(parents=True, exist_ok=True)
-    payload = _pack(rows, vocab)
+    starred = favs.load() if starred is None else starred
+    payload = _pack(rows, vocab, starred)
     payload["meta"] = {
         "generated": date.today().isoformat(),
         "n_total": len(rows),
         "n_cfd": sum(1 for r in rows if r["cfd_facing"]),
         "n_cited": sum(1 for r in rows if r["citations_crossref"] is not None),
+        "n_review": sum(1 for r in rows if r["is_review"]),
         "schema_version": vocab.schema_version,
         "new_window_days": NEW_WINDOW_DAYS,
     }
@@ -67,7 +82,8 @@ TEMPLATE = r"""<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>__TITLE__</title>
 <style>
-  :root { --fg:#1a1a1a; --mut:#666; --line:#e2e2e2; --accent:#B5179E; --bg:#fff; --chip:#f3f3f5; }
+  :root { --fg:#1a1a1a; --mut:#666; --line:#e2e2e2; --accent:#B5179E; --bg:#fff;
+          --chip:#f3f3f5; --star:#e8a500; }
   * { box-sizing:border-box; }
   body { margin:0; font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
          color:var(--fg); background:var(--bg); }
@@ -80,7 +96,7 @@ TEMPLATE = r"""<!DOCTYPE html>
   input[type=search], input[type=number], select {
       font:inherit; padding:5px 8px; border:1px solid var(--line); border-radius:5px;
       background:var(--bg); color:var(--fg); }
-  input[type=search] { min-width:260px; flex:1 1 260px; }
+  input[type=search] { min-width:230px; flex:1 1 230px; }
   input[type=number] { width:72px; }
   details.facet { position:relative; }
   details.facet > summary { list-style:none; cursor:pointer; padding:5px 10px;
@@ -88,9 +104,11 @@ TEMPLATE = r"""<!DOCTYPE html>
       user-select:none; font-size:13px; }
   details.facet > summary::-webkit-details-marker { display:none; }
   details.facet[open] > summary { border-color:var(--accent); color:var(--accent); }
-  .panel { position:absolute; z-index:30; top:calc(100% + 4px); left:0; min-width:330px;
+  .panel { position:absolute; z-index:30; top:calc(100% + 4px); left:0; min-width:340px;
       max-height:340px; overflow:auto; background:var(--bg); border:1px solid var(--line);
       border-radius:6px; box-shadow:0 6px 24px rgba(0,0,0,.12); padding:6px; }
+  .panel .mode { font-size:11px; color:var(--mut); padding:3px 7px 6px; border-bottom:1px solid var(--line);
+      margin-bottom:4px; }
   .panel label { display:flex; gap:7px; align-items:flex-start; padding:3px 6px;
       border-radius:4px; cursor:pointer; font-size:13px; }
   .panel label:hover { background:var(--chip); }
@@ -108,6 +126,10 @@ TEMPLATE = r"""<!DOCTYPE html>
       font-size:12px; font-weight:600; color:var(--mut); white-space:nowrap; z-index:10; }
   th:hover { color:var(--accent); }
   th .arrow { opacity:.45; font-size:10px; }
+  th.star, td.star { width:26px; padding-left:16px; padding-right:0; cursor:pointer;
+      user-select:none; }
+  td.star { color:#ccc; font-size:15px; line-height:1.2; }
+  td.star.on { color:var(--star); }
   tbody tr:hover { background:#fafafa; }
   td.date, td.cite { white-space:nowrap; font-variant-numeric:tabular-nums; color:var(--mut); }
   td.title { cursor:pointer; }
@@ -118,10 +140,16 @@ TEMPLATE = r"""<!DOCTYPE html>
   .chip { font-size:10.5px; background:var(--chip); color:#444; border-radius:3px;
       padding:1px 5px; white-space:nowrap; }
   .chip.cap { background:#fdeef8; color:#8d1178; }
+  .chip.rev { background:#1a1a1a; color:#fff; }
+  .chip.inv { background:#e8f1ff; color:#14478f; }
   .badge { font-size:10px; background:var(--accent); color:#fff; border-radius:3px;
       padding:1px 5px; margin-left:6px; vertical-align:1px; }
   tr.abs td { background:#fbfbfc; color:#333; font-size:13px; padding-top:0; }
+  tr.abs .authors { color:var(--mut); font-size:12px; margin-bottom:6px; }
   .hint { color:var(--mut); font-size:12px; padding:0 22px 26px; }
+  .m { font-family:"Latin Modern Math",Georgia,"Times New Roman",serif; font-style:italic; }
+  .m sup, .m sub { font-style:normal; font-size:.75em; }
+  .m .op { font-style:normal; }
 </style>
 </head>
 <body>
@@ -131,37 +159,48 @@ TEMPLATE = r"""<!DOCTYPE html>
 </header>
 
 <div class="controls">
-  <input type="search" id="q" placeholder="Search title, abstract, author — space-separated terms must all match">
+  <input type="search" id="q" placeholder="Search title, abstract, authors">
   <label class="toggle">year <input type="number" id="y0" placeholder="from"></label>
   <label class="toggle">to <input type="number" id="y1" placeholder="to"></label>
   <details class="facet" id="f-fam"><summary>Algorithm family</summary><div class="panel"></div></details>
   <details class="facet" id="f-pde"><summary>PDE target</summary><div class="panel"></div></details>
   <details class="facet" id="f-cap"><summary>Capability axis</summary><div class="panel"></div></details>
-  <label class="toggle"><input type="checkbox" id="cfd"> CFD-facing only</label>
+  <details class="facet" id="f-doc"><summary>Document type</summary><div class="panel"></div></details>
+  <details class="facet" id="f-pcl"><summary>Problem</summary><div class="panel"></div></details>
+  <label class="toggle"><input type="checkbox" id="cfd"> CFD</label>
+  <label class="toggle"><input type="checkbox" id="rev"> Reviews</label>
+  <label class="toggle"><input type="checkbox" id="fav"> &#9733; Starred</label>
   <label class="toggle"><input type="checkbox" id="new"> New</label>
   <button id="reset">Reset</button>
+  <button id="export">Export favourites</button>
   <button id="csv">Download CSV</button>
 </div>
 
 <div class="count" id="count"></div>
 <table>
   <thead><tr>
+    <th class="star" title="Starred">&#9733;</th>
     <th data-k="d">Submitted <span class="arrow"></span></th>
     <th data-k="t">Title <span class="arrow"></span></th>
-    <th data-k="a">First author <span class="arrow"></span></th>
+    <th data-k="au">Authors <span class="arrow"></span></th>
     <th data-k="c">Cites <span class="arrow"></span></th>
   </tr></thead>
   <tbody id="tb"></tbody>
 </table>
-<p class="hint">Click a title to show its abstract. Tags are regex matches over title and
-abstract, so they record what a paper advertises — treat them as a lower bound, not a
-reading of the full text.</p>
+<p class="hint">Click a title for the abstract and the full author list. Stars are kept in
+this browser; use <b>Export favourites</b> and replace <code>data/favourites.txt</code> to
+make them permanent. Tags are regex matches over title and abstract, so they record what a
+paper advertises — a lower bound, not a reading of the full text.</p>
 
 <script id="payload" type="application/json">__PAYLOAD__</script>
 <script>
 const P = JSON.parse(document.getElementById('payload').textContent);
-const ROWS = P.rows, FAM = P.fam, PDE = P.pde, CAP = P.cap, META = P.meta;
-const sel = {f:new Set(), p:new Set(), x:new Set()};
+const ROWS = P.rows, META = P.meta;
+const NAMES = {f:P.fam, p:P.pde, x:P.cap, dt:P.doc, pc:P.pclass};
+// AND within the analytical facets (find papers covering BOTH axes); OR within
+// the categorical ones, where a paper only ever has one value.
+const MODE = {f:'and', p:'and', x:'and', dt:'or', pc:'or'};
+const sel = {f:new Set(), p:new Set(), x:new Set(), dt:new Set(), pc:new Set()};
 let sortKey = 'd', sortDir = -1;
 
 const newCutoff = (() => {
@@ -170,60 +209,179 @@ const newCutoff = (() => {
   return d.toISOString().slice(0, 10);
 })();
 
-document.getElementById('meta').textContent =
-  `${META.n_total} papers · ${META.n_cfd} CFD-facing · ${META.n_cited} with Crossref citation counts`
-  + ` · vocabulary v${META.schema_version} · updated ${META.generated}`;
+// ---- favourites: seeded from data/favourites.txt, then browser-local --------
+const FAVKEY = 'qpdewatch:favourites';
+let FAV;
+try { FAV = JSON.parse(localStorage.getItem(FAVKEY)) || null; } catch (e) { FAV = null; }
+if (!FAV) { FAV = Object.assign({}, P.seed); saveFav(); }
+function saveFav() {
+  try { localStorage.setItem(FAVKEY, JSON.stringify(FAV)); } catch (e) {}
+}
 
-// ---- facet panels -------------------------------------------------------
-function buildFacet(id, names, key) {
+document.getElementById('meta').textContent =
+  `${META.n_total} papers · ${META.n_cfd} CFD-facing · ${META.n_review} reviews · `
+  + `${META.n_cited} with Crossref counts · vocabulary v${META.schema_version} · `
+  + `updated ${META.generated}`;
+
+// ---- minimal TeX rendering -------------------------------------------------
+// arXiv abstracts are plain text with TeX fragments. A full engine (KaTeX) is
+// ~300 KB of vendored assets; this covers the subset that actually shows up in
+// this corpus — exponents, subscripts, operators, Greek — and leaves anything
+// it does not know as legible text rather than mangling it.
+const SYM = {
+  times:'\u00d7', cdot:'\u00b7', pm:'\u00b1', mp:'\u2213', approx:'\u2248',
+  sim:'\u223c', simeq:'\u2243', equiv:'\u2261', neq:'\u2260', ne:'\u2260',
+  leq:'\u2264', le:'\u2264', geq:'\u2265', ge:'\u2265', ll:'\u226a', gg:'\u226b',
+  to:'\u2192', rightarrow:'\u2192', leftarrow:'\u2190', Rightarrow:'\u21d2',
+  mapsto:'\u21a6', propto:'\u221d', in:'\u2208', notin:'\u2209', subset:'\u2282',
+  subseteq:'\u2286', cup:'\u222a', cap:'\u2229', infty:'\u221e', partial:'\u2202',
+  nabla:'\u2207', sum:'\u2211', int:'\u222b', oint:'\u222e', prod:'\u220f',
+  sqrt:'\u221a', otimes:'\u2297', oplus:'\u2295', dagger:'\u2020', hbar:'\u210f',
+  ell:'\u2113', langle:'\u27e8', rangle:'\u27e9', lvert:'|', rvert:'|',
+  lVert:'\u2016', rVert:'\u2016', ldots:'\u2026', dots:'\u2026', cdots:'\u22ef',
+  forall:'\u2200', exists:'\u2203', emptyset:'\u2205', star:'\u22c6',
+  prime:'\u2032', circ:'\u2218', deg:'\u00b0', perp:'\u22a5', angle:'\u2220',
+  alpha:'\u03b1', beta:'\u03b2', gamma:'\u03b3', delta:'\u03b4', epsilon:'\u03b5',
+  varepsilon:'\u03b5', zeta:'\u03b6', eta:'\u03b7', theta:'\u03b8', vartheta:'\u03d1',
+  iota:'\u03b9', kappa:'\u03ba', lambda:'\u03bb', mu:'\u03bc', nu:'\u03bd',
+  xi:'\u03be', pi:'\u03c0', rho:'\u03c1', sigma:'\u03c3', tau:'\u03c4',
+  upsilon:'\u03c5', phi:'\u03c6', varphi:'\u03c6', chi:'\u03c7', psi:'\u03c8',
+  omega:'\u03c9', Gamma:'\u0393', Delta:'\u0394', Theta:'\u0398', Lambda:'\u039b',
+  Xi:'\u039e', Pi:'\u03a0', Sigma:'\u03a3', Upsilon:'\u03a5', Phi:'\u03a6',
+  Psi:'\u03a8', Omega:'\u03a9'
+};
+const ROMAN = /^(log|ln|exp|sin|cos|tan|sinh|cosh|tanh|min|max|arg|det|dim|lim|sup|inf|mod|Re|Im|tr|rank|diag|mathcal|mathrm|mathbf|mathbb|text|textrm|operatorname|left|right|big|Big|bigg|Bigg|displaystyle|quad|qquad|nonumber|label)$/;
+
+// Combining accents: \vec{u} becomes u followed by U+20D7, which renders as a
+// single glyph in any font with decent combining-mark support.
+const ACCENT = {vec:'\u20d7', widetilde:'\u0303', tilde:'\u0303', widehat:'\u0302',
+                hat:'\u0302', bar:'\u0304', overline:'\u0304', dot:'\u0307',
+                ddot:'\u0308', check:'\u030c', acute:'\u0301', grave:'\u0300'};
+
+function math(src) {
+  let s = src;
+  s = s.replace(/\\(?:left|right|displaystyle|nonumber|rm|it|bf|!|,|;|:|\s)/g, ' ');
+  s = s.replace(/\\(vec|widetilde|tilde|widehat|hat|bar|overline|dot|ddot|check|acute|grave)\s*\{([^{}]*)\}/g,
+                (m0, acc, inner) => inner + ACCENT[acc]);
+  s = s.replace(/\\frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g, '($1)/($2)');
+  s = s.replace(/\\sqrt\s*\{([^{}]*)\}/g, '\u221a($1)');
+  s = s.replace(/\\(?:lvert|rvert|vert|mid)\b/g, '|');
+  s = s.replace(/\\\|/g, '\u2016');
+  s = s.replace(/\\(?:mathcal|mathrm|mathbf|mathbb|text|textrm|operatorname)\s*\{([^{}]*)\}/g,
+                '<span class="op">$1</span>');
+  s = s.replace(/\\([A-Za-z]+)/g, (m0, w) => {
+    if (SYM[w]) return SYM[w];
+    if (ROMAN.test(w)) return '<span class="op">' + w + '</span>';
+    return w;
+  });
+  // exponents and subscripts, innermost braces first
+  for (let k = 0; k < 4; k++) {
+    s = s.replace(/\^\s*\{([^{}]*)\}/g, '<sup>$1</sup>')
+         .replace(/_\s*\{([^{}]*)\}/g, '<sub>$1</sub>')
+         .replace(/\^(-?[A-Za-z0-9+\u2212])/g, '<sup>$1</sup>')
+         .replace(/_(-?[A-Za-z0-9+\u2212])/g, '<sub>$1</sub>');
+  }
+  s = s.replace(/[{}]/g, '').replace(/\s{2,}/g, ' ');
+  return '<span class="m">' + s + '</span>';
+}
+
+const esc = s => String(s).replace(/[&<>"]/g,
+  c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function tex(raw) {
+  // Escape first so the source text can never inject markup; the math() output
+  // is the only HTML we add, and it is built from already-escaped input.
+  let s = esc(raw);
+  // Text-mode macros first: these appear in abstracts outside any $...$.
+  s = s.replace(/\\(?:begin|end)\s*\{[^{}]*\}/g, '');
+  s = s.replace(/\\(?:cite|citep|citet|ref|eqref|label|footnote)\s*\{[^{}]*\}/g, '');
+  s = s.replace(/\\(?:emph|textit|textsl)\s*\{([^{}]*)\}/g, '<em>$1</em>');
+  s = s.replace(/\\(?:textbf|bf)\s*\{([^{}]*)\}/g, '<b>$1</b>');
+  s = s.replace(/\\(?:texttt|textsc|textrm|text|mathrm|mathbf|mathbb|mathcal)\s*\{([^{}]*)\}/g, '$1');
+  s = s.replace(/\\url\s*\{([^{}]*)\}/g, '$1');
+  // Old-style font groups: {\it foo}, {\em foo}, {\bf foo}
+  s = s.replace(/\{\\(?:it|em|sl)\s+([^{}]*)\}/g, '<em>$1</em>');
+  s = s.replace(/\{\\(?:bf)\s+([^{}]*)\}/g, '<b>$1</b>');
+  s = s.replace(/\{\\(?:rm|tt|sc)\s+([^{}]*)\}/g, '$1');
+  // Then math segments.
+  s = s.replace(/\$\$([\s\S]+?)\$\$/g, (m0, inner) => math(inner));
+  s = s.replace(/\\\(([\s\S]+?)\\\)/g, (m0, inner) => math(inner));
+  s = s.replace(/\\\[([\s\S]+?)\\\]/g, (m0, inner) => math(inner));
+  s = s.replace(/\$([^$]+?)\$/g, (m0, inner) => math(inner));
+  // Symbol macros also turn up outside any $...$. Only names in SYM are touched,
+  // and the HTML produced above contains no backslashes, so this cannot corrupt it.
+  s = s.replace(/\\([A-Za-z]+)/g, (m0, w) => SYM[w] !== undefined ? SYM[w] : m0);
+  s = s.replace(/\\([%&_#$ ])/g, '$1');
+  return s;
+}
+
+// ---- facet panels ----------------------------------------------------------
+function buildFacet(id, key, names, counter) {
   const panel = document.querySelector('#' + id + ' .panel');
-  const counts = names.map((_, i) => ROWS.filter(r => r[key].includes(i)).length);
-  names.map((name, i) => ({name, i, n: counts[i]}))
+  const mode = document.createElement('div');
+  mode.className = 'mode';
+  mode.textContent = MODE[key] === 'and'
+    ? 'Selecting several requires a paper to have all of them'
+    : 'Selecting several matches any of them';
+  panel.appendChild(mode);
+  names.map((name, i) => ({name, i, n: counter(i)}))
        .sort((a, b) => b.n - a.n)
        .forEach(({name, i, n}) => {
     const label = document.createElement('label');
-    label.innerHTML = `<input type="checkbox" value="${i}"><span>${name}</span><span class="n">${n}</span>`;
+    label.innerHTML = `<input type="checkbox" value="${i}"><span>${esc(name)}</span>` +
+                      `<span class="n">${n}</span>`;
     label.querySelector('input').addEventListener('change', e => {
-      e.target.checked ? sel[key].add(i) : sel[key].delete(i);
-      syncSummary(id, key, names);
+      const v = MODE[key] === 'or' && key === 'pc' ? name : i;
+      e.target.checked ? sel[key].add(v) : sel[key].delete(v);
+      syncSummary(id, key);
       render();
     });
     panel.appendChild(label);
   });
 }
-function syncSummary(id, key, names) {
+const BASE = {f:'Algorithm family', p:'PDE target', x:'Capability axis',
+              dt:'Document type', pc:'Problem'};
+function syncSummary(id, key) {
   const s = document.querySelector('#' + id + ' summary');
-  const base = {f: 'Algorithm family', p: 'PDE target', x: 'Capability axis'}[key];
-  s.textContent = sel[key].size ? `${base} (${sel[key].size})` : base;
+  s.textContent = sel[key].size ? `${BASE[key]} (${sel[key].size})` : BASE[key];
 }
-buildFacet('f-fam', FAM, 'f');
-buildFacet('f-pde', PDE, 'p');
-buildFacet('f-cap', CAP, 'x');
+buildFacet('f-fam', 'f',  NAMES.f,  i => ROWS.filter(r => r.f.includes(i)).length);
+buildFacet('f-pde', 'p',  NAMES.p,  i => ROWS.filter(r => r.p.includes(i)).length);
+buildFacet('f-cap', 'x',  NAMES.x,  i => ROWS.filter(r => r.x.includes(i)).length);
+buildFacet('f-doc', 'dt', NAMES.dt, i => ROWS.filter(r => r.dt.includes(i)).length);
+buildFacet('f-pcl', 'pc', NAMES.pc, i => ROWS.filter(r => r.pc === NAMES.pc[i]).length);
 document.addEventListener('click', e => {
   document.querySelectorAll('details.facet[open]').forEach(d => {
     if (!d.contains(e.target)) d.removeAttribute('open');
   });
 });
 
-// ---- filtering ----------------------------------------------------------
+// ---- filtering -------------------------------------------------------------
 function current() {
   const terms = document.getElementById('q').value.toLowerCase().split(/\s+/).filter(Boolean);
   const y0 = parseInt(document.getElementById('y0').value, 10);
   const y1 = parseInt(document.getElementById('y1').value, 10);
   const cfdOnly = document.getElementById('cfd').checked;
+  const revOnly = document.getElementById('rev').checked;
+  const favOnly = document.getElementById('fav').checked;
   const newOnly = document.getElementById('new').checked;
-  const hasAll = (have, want) => [...want].every(v => have.includes(v));
+  const all = (have, want) => [...want].every(v => have.includes(v));
+  const any = (have, want) => [...want].some(v => have.includes(v));
+  const match = (have, key) => !sel[key].size ||
+        (MODE[key] === 'and' ? all(have, sel[key]) : any(have, sel[key]));
   return ROWS.filter(r => {
     if (cfdOnly && !r.q) return false;
+    if (revOnly && !r.rv) return false;
+    if (favOnly && !(r.i in FAV)) return false;
     if (newOnly && !(r.s >= newCutoff)) return false;
     const yr = parseInt(r.d.slice(0, 4), 10);
     if (!isNaN(y0) && yr < y0) return false;
     if (!isNaN(y1) && yr > y1) return false;
-    if (sel.f.size && !hasAll(r.f, sel.f)) return false;
-    if (sel.p.size && !hasAll(r.p, sel.p)) return false;
-    if (sel.x.size && !hasAll(r.x, sel.x)) return false;
+    if (!match(r.f, 'f') || !match(r.p, 'p') || !match(r.x, 'x') || !match(r.dt, 'dt'))
+      return false;
+    if (sel.pc.size && !sel.pc.has(r.pc)) return false;
     if (terms.length) {
-      const hay = (r.t + ' ' + r.ab + ' ' + r.a).toLowerCase();
+      const hay = (r.t + ' ' + r.ab + ' ' + r.au).toLowerCase();
       if (!terms.every(t => hay.includes(t))) return false;
     }
     return true;
@@ -235,35 +393,55 @@ function current() {
   });
 }
 
-// ---- rendering ----------------------------------------------------------
-const esc = s => s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+// ---- rendering -------------------------------------------------------------
+function shortAuthors(r) {
+  const list = r.au.split('; ');
+  if (list.length <= 3) return esc(list.join(', '));
+  return esc(list.slice(0, 2).join(', ')) +
+         ` <span class="n">+${list.length - 2} more</span>`;
+}
 function render() {
   const rows = current();
   document.getElementById('count').textContent =
     `showing ${rows.length} of ${ROWS.length}` +
-    (rows.length ? ` · ${rows.filter(r => r.q).length} CFD-facing in this selection` : '');
+    (rows.length ? ` · ${rows.filter(r => r.q).length} CFD-facing · ` +
+                   `${rows.filter(r => r.i in FAV).length} starred` : '');
   const tb = document.getElementById('tb');
   tb.innerHTML = '';
   const frag = document.createDocumentFragment();
   for (const r of rows) {
     const tr = document.createElement('tr');
-    const chips = [...r.f.map(i => `<span class="chip">${esc(FAM[i])}</span>`),
-                   ...r.x.map(i => `<span class="chip cap">${esc(CAP[i])}</span>`)].join('');
+    const chips = [
+      r.rv ? '<span class="chip rev">review</span>' : '',
+      r.pc !== 'Forward (assumed)' ? `<span class="chip inv">${esc(r.pc)}</span>` : '',
+      ...r.f.map(i => `<span class="chip">${esc(NAMES.f[i])}</span>`),
+      ...r.x.map(i => `<span class="chip cap">${esc(NAMES.x[i])}</span>`)
+    ].join('');
     tr.innerHTML =
+      `<td class="star${r.i in FAV ? ' on' : ''}">${r.i in FAV ? '\u2605' : '\u2606'}</td>` +
       `<td class="date">${r.d}</td>` +
-      `<td class="title"><b>${esc(r.t)}</b>` +
+      `<td class="title"><b>${tex(r.t)}</b>` +
         (r.s >= newCutoff ? '<span class="badge">new</span>' : '') +
         ` <a href="https://arxiv.org/abs/${r.i}" target="_blank" rel="noopener">${r.i}</a>` +
         `<div class="chips">${chips}</div></td>` +
-      `<td>${esc(r.a)}${r.na > 1 ? ' <span class="n">+' + (r.na - 1) + '</span>' : ''}</td>` +
-      `<td class="cite">${r.c === null ? '—' : r.c}</td>`;
+      `<td>${shortAuthors(r)}</td>` +
+      `<td class="cite">${r.c === null ? '\u2014' : r.c}</td>`;
+    tr.querySelector('td.star').addEventListener('click', ev => {
+      ev.stopPropagation();
+      if (r.i in FAV) delete FAV[r.i]; else FAV[r.i] = '';
+      saveFav();
+      render();
+    });
     tr.querySelector('td.title').addEventListener('click', () => {
       const next = tr.nextElementSibling;
       if (next && next.classList.contains('abs')) { next.remove(); return; }
       const ab = document.createElement('tr');
       ab.className = 'abs';
-      ab.innerHTML = `<td></td><td colspan="3">${esc(r.ab)}` +
-        (r.v ? `<div class="chips"><span class="chip">${esc(r.v)}</span></div>` : '') + `</td>`;
+      ab.innerHTML = `<td></td><td></td><td colspan="3">` +
+        `<div class="authors">${esc(r.au.split('; ').join(', '))}</div>` +
+        tex(r.ab) +
+        (r.v ? `<div class="chips"><span class="chip">${esc(r.v)}</span></div>` : '') +
+        `</td>`;
       tr.after(ab);
     });
     frag.appendChild(tr);
@@ -273,36 +451,58 @@ function render() {
 
 document.querySelectorAll('th[data-k]').forEach(th => th.addEventListener('click', () => {
   const k = th.dataset.k;
-  sortDir = (k === sortKey) ? -sortDir : (k === 't' || k === 'a' ? 1 : -1);
+  sortDir = (k === sortKey) ? -sortDir : (k === 't' || k === 'au' ? 1 : -1);
   sortKey = k;
   document.querySelectorAll('th .arrow').forEach(a => a.textContent = '');
   th.querySelector('.arrow').textContent = sortDir === 1 ? '\u25b2' : '\u25bc';
   render();
 }));
-['q','y0','y1','cfd','new'].forEach(id =>
+['q','y0','y1','cfd','rev','fav','new'].forEach(id =>
   document.getElementById(id).addEventListener('input', render));
 document.getElementById('reset').addEventListener('click', () => {
   ['q','y0','y1'].forEach(id => document.getElementById(id).value = '');
-  ['cfd','new'].forEach(id => document.getElementById(id).checked = false);
+  ['cfd','rev','fav','new'].forEach(id => document.getElementById(id).checked = false);
   Object.values(sel).forEach(s => s.clear());
   document.querySelectorAll('.panel input').forEach(i => i.checked = false);
-  syncSummary('f-fam','f',FAM); syncSummary('f-pde','p',PDE); syncSummary('f-cap','x',CAP);
+  Object.keys(BASE).forEach(k => syncSummary({f:'f-fam',p:'f-pde',x:'f-cap',
+                                              dt:'f-doc',pc:'f-pcl'}[k], k));
   render();
 });
+
+function download(name, text, type) {
+  const url = URL.createObjectURL(new Blob([text], {type: type}));
+  const a = document.createElement('a');
+  a.href = url; a.download = name; a.click();
+  URL.revokeObjectURL(url);
+}
+document.getElementById('export').addEventListener('click', () => {
+  const byId = Object.fromEntries(ROWS.map(r => [r.i, r]));
+  const lines = [
+    '# Starred papers \u2014 one arXiv ID per line, optional note after \'#\'.',
+    '# This file is the durable record; the HTML viewer seeds its stars from it.',
+    '# After starring in the browser, use "Export favourites" and replace this file.',
+    ''];
+  for (const id of Object.keys(FAV).sort()) {
+    const note = FAV[id] || (byId[id] ? byId[id].t.slice(0, 60) : '');
+    lines.push(note ? `${id}  # ${note}` : id);
+  }
+  download('favourites.txt', lines.join('\n') + '\n', 'text/plain');
+});
 document.getElementById('csv').addEventListener('click', () => {
-  const cols = ['arxiv_id','published','title','first_author','citations_crossref','venue',
-                'cfd_facing','algorithm_families','pde_targets','capability_axes','url'];
+  const cols = ['arxiv_id','published','title','authors','citations_crossref','venue',
+                'cfd_facing','is_review','problem_class','algorithm_families',
+                'pde_targets','capability_axes','starred','url'];
   const q = v => '"' + String(v === null || v === undefined ? '' : v).replace(/"/g, '""') + '"';
   const lines = [cols.join(',')];
   for (const r of current()) {
-    lines.push([r.i, r.d, r.t, r.a, r.c === null ? '' : r.c, r.v, r.q,
-                r.f.map(i => FAM[i]).join('; '), r.p.map(i => PDE[i]).join('; '),
-                r.x.map(i => CAP[i]).join('; '), 'https://arxiv.org/abs/' + r.i].map(q).join(','));
+    lines.push([r.i, r.d, r.t, r.au, r.c === null ? '' : r.c, r.v, r.q, r.rv, r.pc,
+                r.f.map(i => NAMES.f[i]).join('; '),
+                r.p.map(i => NAMES.p[i]).join('; '),
+                r.x.map(i => NAMES.x[i]).join('; '),
+                (r.i in FAV) ? 1 : 0,
+                'https://arxiv.org/abs/' + r.i].map(q).join(','));
   }
-  const url = URL.createObjectURL(new Blob([lines.join('\n')], {type:'text/csv'}));
-  const a = document.createElement('a');
-  a.href = url; a.download = 'quantum_pde_filtered.csv'; a.click();
-  URL.revokeObjectURL(url);
+  download('quantum_pde_filtered.csv', lines.join('\n'), 'text/csv');
 });
 
 document.querySelector('th[data-k="d"] .arrow').textContent = '\u25bc';

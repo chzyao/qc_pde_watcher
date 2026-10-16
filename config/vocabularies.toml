@@ -8,7 +8,9 @@
 # schema_version 1 = the vocabulary used for the original 700-paper corpus.
 # schema_version 2 = adds the Lindbladian/open-system family and fixes the
 #                    lattice-Boltzmann miss in the Boltzmann PDE target.
-schema_version = 2
+# schema_version 3 = adds [document_types] (review/survey detection) and
+#                    [problem_settings] (inverse vs forward).
+schema_version = 3
 
 # ---------------------------------------------------------------------------
 # Relevance screen. A record is kept if it matches quantum_terms AND pde_terms
@@ -69,6 +71,33 @@ cfd_pde_targets = [
 "Finance / Black-Scholes" = '(Black.?Scholes|option pricing|financial derivative)'
 "Generic linear ODE/PDE systems" = '(system of (linear )?(ordinary )?differential equations|general (linear )?(ODE|PDE)|dissipative linear)'
 "Turbulence / high Reynolds" = '(turbulen|Reynolds number|\bRANS\b|\bLES\b|direct numerical simulation|\bDNS\b|Kolmogorov (flow|spectrum))'
+
+# ---------------------------------------------------------------------------
+# Document types. Detects what KIND of paper this is, rather than what it is
+# about. Patterns are deliberately anchored on self-description ("we review",
+# "this survey") or on title position, because "review" and "benchmark" appear
+# in ordinary sentences constantly ("peer review", "we benchmark our solver
+# against ..."). Precision matters more than recall here: a missed review is a
+# minor annoyance, a research paper mislabelled as a survey is misleading.
+# ---------------------------------------------------------------------------
+[document_types]
+"Review / survey" = '((^|: )(a |an |the )?(comprehensive |systematic |brief |short |critical |recent )*(review|survey|overview)\b|\breview (article|paper)\b|(we|this (paper|article|work)|here we) (present|provide|give|offer)s? (a|an) (comprehensive |systematic |brief |critical |short |detailed |pedagogical )*(review|survey|overview)\b|this (review|survey)\b|(a|this) (comprehensive|systematic|critical|brief|short) (review|survey|overview)\b|state.of.the.art review|literature (review|survey))'
+"Perspective / roadmap / position" = '(\bperspective\b|\broadmap\b|position paper|opportunities and challenges|outlook (on|for)|the (path|pathway|road) (to|toward)|vision (paper|for)|grand challenge)'
+"Tutorial / pedagogical" = '(\btutorial\b|pedagogical|lecture notes|primer (on|for)|introduction for (non|practitioners)|a gentle introduction)'
+"Benchmark / comparative study" = '((^|: )(a |an )?(comparative|benchmark)(ing)? (study|benchmark|comparison|analysis)|we (benchmark|compare) (several|multiple|the|various|different|three|four|five)|comparative (study|benchmark|analysis) of|head.to.head)'
+"Software / toolkit release" = '(\btoolkit\b|\bsoftware (package|framework|library|release)\b|open.?source (package|library|implementation|code)|we (present|introduce|release) (a|the) (python|julia|c\+\+|open.?source) )'
+
+# ---------------------------------------------------------------------------
+# Problem setting. Forward vs inverse is not symmetric in the literature:
+# inverse, control and UQ papers announce themselves, while forward solvers
+# rarely say "this is a forward problem". So only the non-forward settings are
+# detected here, and tag.py derives a single `problem_class` in which "Forward
+# (assumed)" is the fallback — an absence of evidence, not a positive match.
+# ---------------------------------------------------------------------------
+[problem_settings]
+"Inverse problem / data assimilation" = '(inverse problem|inverse scattering|inverse design|parameter (estimation|identification|inference|recovery|calibration)|coefficient (identification|recovery|inversion)|data assimilation|state estimation|full.?waveform inversion|source (identification|localization|localisation|reconstruction)|Bayesian inver|seismic tomograph|tomographic (reconstruction|imaging)|flow (field )?reconstruction|reconstruct(ing)? (the )?(flow|velocity|pressure|initial condition|source)|sparse (sensor|measurement|observation)|sensor placement|super.?resolution|deconvolution|history matching|velocimetry|\bPIV\b|flow measurement|measure (and visuali[sz]e )?(the )?velocity field)'
+"PDE-constrained optimisation / control" = '(PDE.?constrained optimi[sz]ation|optimal control|flow control|shape optimi[sz]ation|topology optimi[sz]ation|adjoint (method|equation|solver|based)|design optimi[sz]ation|inverse design|model predictive control|reinforcement learning.{0,30}control)'
+"Uncertainty quantification / stochastic" = '(uncertainty quantification|\bUQ\b|stochastic (differential|partial differential|PDE|collocation|Galerkin)|polynomial chaos|ensemble (forecast|simulation|Kalman)|Monte Carlo (sampling|estimation|integration)|random (field|coefficient|input)|probabilistic (forecast|model))'
 
 # ---------------------------------------------------------------------------
 # Capability axes — the gap-map dimensions

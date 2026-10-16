@@ -1,0 +1,16 @@
+# Starred papers — one arXiv ID per line, optional note after '#'.
+# This file is the durable record; the HTML viewer seeds its stars from it.
+# After starring in the browser, use "Export favourites" and replace this file.
+#
+# Seeded with the papers the gap map leans on hardest. Delete freely.
+
+2603.12161  # lower bounds: Omega(T^2) KdV, e^Omega(T) Euler
+2512.03758  # end-to-end Carleman-LBM, bounded advantage
+2608.21647  # measurement and reload costs
+2509.08807  # full-stack NSE claim, 2^80 grid
+2602.04239  # only cross-paradigm benchmark (1D Burgers)
+2608.26995  # quantum-inspired compressible DNS vs HiPSTAR
+2510.17978  # complex geometries, obstacle BCs in circuits
+2608.09808  # GKSL realizability iff invertible and power-bounded
+2604.18924  # Lindbladian homotopy, log dimension claim
+2511.20017  # real vs Fourier space readout for CFD

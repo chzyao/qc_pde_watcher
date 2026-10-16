@@ -38,6 +38,7 @@ python -m qpdewatch update      # the weekly job: harvest, enrich, build
 | `data/coverage_matrix_fraction.csv` | Same matrix as fraction of each family's papers. |
 | `data/gap_scorecard.csv` | Per-axis coverage before/from 2024 — the "is the gap closing?" table. |
 | `data/state.json` | Last harvest date and record count. Drives the incremental cutoff. |
+| `data/favourites.txt` | Starred papers — one arXiv ID per line, optional note after `#`. Committed, so stars are portable and show up in git. |
 | `docs/index.html` | Self-contained browser: search, facet filters, column sorting, CSV export of the current selection. |
 | `docs/coverage_matrix.png`, `docs/gap_trajectory.png` | The two gap-map figures. |
 
@@ -80,6 +81,32 @@ coverage matrices, the scorecard, the two figures and the HTML browser.
 
 ---
 
+## The viewer
+
+`docs/index.html` is one self-contained file — data inlined, vanilla JS, no CDN — so it
+works from `file://` and from Pages alike.
+
+- **Search** over title, abstract and all authors; space-separated terms must all match.
+- **Facets** for algorithm family, PDE target, capability axis, document type and problem
+  class. The three analytical facets use AND within the facet (find papers covering *both*
+  readout and geometry); the two categorical ones use OR. Each panel says which.
+- **Quick toggles** for CFD-facing, reviews, starred and new-in-30-days.
+- **Starring.** Click the star in the first column. Stars live in browser localStorage,
+  seeded on first visit from `data/favourites.txt`. Press **Export favourites**, replace
+  `data/favourites.txt` with the download and commit — now the star is permanent, survives
+  a cache clear, and is there on your other machines. The viewer is a static page, so this
+  file-plus-localStorage split is what makes starring durable without a backend.
+- **TeX rendering.** arXiv abstracts are plain text containing TeX, so `$3.7\times10^{-12}$`
+  used to display raw. `qpdewatch/site.py` ships a small renderer covering the subset that
+  actually occurs in this corpus: exponents and subscripts, fractions, roots, accents
+  (`\vec`, `\bar`, `\widetilde`), Greek, operators and relations, text macros (`\emph`,
+  `\cite`, `\text`), and old-style `{\it …}` groups. Across all 733 titles and abstracts it
+  leaves three unrecognised tokens, all of which are literal text rather than TeX. Anything
+  it does not know is left as legible source rather than mangled. A full engine (KaTeX,
+  MathJax) would be exact but means ~300 KB of vendored assets and breaks the
+  single-file property — worth doing only if the simple renderer starts to grate.
+- **Download CSV** exports whatever is currently filtered, including a `starred` column.
+
 ## Editing the vocabularies
 
 Everything that defines the map lives in `config/vocabularies.toml` as case-insensitive
@@ -96,6 +123,27 @@ into the HTML header so a published table says which vocabulary produced it.
 
 Adding a query to `config/queries.toml` costs one HTTP round trip per run. If a new query
 should back-fill history, run `python -m qpdewatch harvest --full` once.
+
+### Document type and problem setting (schema v3)
+
+Two vocabularies classify the paper rather than its subject.
+
+`[document_types]` detects reviews, surveys, perspectives, tutorials, benchmark studies and
+software releases. These patterns are deliberately **precision-first**: they fire on
+self-description ("this survey", "we present a comprehensive review") or on title position,
+never on a bare "we review", which appears in ordinary research intros constantly. Tuning it
+the loose way flagged 16 papers of which 3 were plainly not reviews; the current rules flag
+10, all genuine. A missed review is a minor annoyance, a research paper mislabelled as a
+survey is misleading. `is_review` in the CSV is the narrow Review/survey flag only — use the
+document-type facet if you also want perspectives and tutorials.
+
+`[problem_settings]` detects inverse problems and data assimilation, PDE-constrained
+optimisation and control, and uncertainty quantification. The derived `problem_class` column
+collapses these to one value with that precedence, falling back to **"Forward (assumed)"**.
+Read that label literally: forward and inverse are not symmetric in how papers describe
+themselves — inverse, control and UQ work announces itself, while a forward solver rarely
+says so — therefore "Forward (assumed)" means *no inverse-type signal was found*, which is
+an absence of evidence rather than a positive detection.
 
 ### Known vocabulary caveats
 

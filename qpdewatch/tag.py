@@ -14,7 +14,8 @@ from __future__ import annotations
 import csv
 from pathlib import Path
 
-from .config import DATA_DIR, TAG_FIELDS, Vocabularies
+from .config import (DATA_DIR, FORWARD_LABEL, PROBLEM_CLASS_ORDER, TAG_FIELDS,
+                     Vocabularies)
 
 
 def searchable(rec: dict) -> str:
@@ -36,6 +37,12 @@ def tag_record(rec: dict, vocab: Vocabularies) -> dict:
     tags = {f: [name for name, rx in vocab.vocab(f).items() if rx.search(text)]
             for f in TAG_FIELDS}
     tags["cfd_facing"] = any(t in vocab.cfd_pde_targets for t in tags["pde_targets"])
+    tags["is_review"] = "Review / survey" in tags["document_types"]
+    # Single-valued convenience field. "Forward (assumed)" is a fallback, not a
+    # detection: forward solvers almost never announce themselves as such.
+    tags["problem_class"] = next(
+        (label for key, label in PROBLEM_CLASS_ORDER if key in tags["problem_settings"]),
+        FORWARD_LABEL)
     return tags
 
 
@@ -56,12 +63,17 @@ def build_rows(corpus: dict[str, dict], vocab: Vocabularies) -> list[dict]:
             "first_seen": rec.get("first_seen", ""),
             "title": rec.get("title", ""),
             "first_author": authors[0] if authors else "",
+            "authors": "; ".join(authors),
             "n_authors": len(authors),
             "primary_cat": (rec.get("categories") or [""])[0],
             "cfd_facing": tags["cfd_facing"],
+            "is_review": tags["is_review"],
+            "problem_class": tags["problem_class"],
             "algorithm_families": "; ".join(tags["algorithm_families"]),
             "pde_targets": "; ".join(tags["pde_targets"]),
             "capability_axes": "; ".join(tags["capability_axes"]),
+            "document_types": "; ".join(tags["document_types"]),
+            "problem_settings": "; ".join(tags["problem_settings"]),
             "citations_crossref": cr.get("cites"),
             "venue": cr.get("venue"),
             "doi": cr.get("doi") or rec.get("doi"),
