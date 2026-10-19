@@ -28,6 +28,11 @@ concurrency:
 jobs:
   update:
     runs-on: ubuntu-latest
+    # actions/deploy-pages requires the job to declare this environment; without
+    # it the deployment step fails even though the artifact uploaded fine.
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
 
@@ -36,7 +41,10 @@ jobs:
           python-version: "3.12"       # tomllib needs >= 3.11
           cache: pip
 
-      - run: pip install -r requirements.txt
+      # Install the package rather than just its dependency: `python -m qpdewatch`
+      # otherwise relies on the current directory being importable, which is true
+      # on these runners but is not something to depend on.
+      - run: pip install -e ".[figures]"
 
       - name: Harvest, enrich and rebuild
         env:
@@ -50,19 +58,6 @@ jobs:
 
       - name: Summarise
         run: python -m qpdewatch stats >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Fail if the harvest was incomplete
-        # Without this the job stays green while quietly collecting nothing —
-        # the worst failure mode for an unattended weekly task, because you only
-        # notice months later when the corpus has a hole in it. state.json does
-        # not advance on a failed run, so the window is retried; this step only
-        # makes sure you are told.
-        run: |
-          FAILED=$(python -c "import json;print(len(json.load(open('data/state.json')).get('last_failed_queries',[])))")
-          if [ "$FAILED" -gt 0 ]; then
-            echo "::error::$FAILED arXiv queries failed — corpus not updated from arXiv this run."
-            exit 1
-          fi
 
       - name: Commit if the corpus changed
         run: |
@@ -88,4 +83,18 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: docs
-      - uses: actions/deploy-pages@v4
+      - id: deployment
+        uses: actions/deploy-pages@v4
+
+      # Last, deliberately. An arXiv rate-limit must not cost you the Crossref
+      # papers already gathered or leave the site un-republished — but the run
+      # still has to go red, because a weekly job that stays green while
+      # collecting nothing is how a corpus quietly acquires a hole. state.json
+      # does not advance on a failed harvest, so the window is retried in full.
+      - name: Fail if the harvest was incomplete
+        run: |
+          FAILED=$(python -c "import json;print(len(json.load(open('data/state.json')).get('last_failed_queries',[])))")
+          if [ "$FAILED" -gt 0 ]; then
+            echo "::error::$FAILED arXiv queries failed — arXiv contributed nothing this run. Crossref results and the site were still published."
+            exit 1
+          fi
