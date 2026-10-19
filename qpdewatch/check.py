@@ -9,8 +9,10 @@ from __future__ import annotations
 
 import re
 from collections import Counter
+from datetime import date as _date
 
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+TODAY = _date.today().isoformat()
 REQUIRED = ("uid", "title", "published", "source", "first_seen")
 
 
@@ -36,6 +38,10 @@ def problems(corpus: dict[str, dict]) -> tuple[list[str], list[str]]:
             value = rec.get(field)
             if value and not DATE_RE.match(value):
                 out.append(f"{key}: {field} is not ISO yyyy-mm-dd ({value!r})")
+        # Crossref `issued` is often a planned print issue, so records can
+        # arrive dated in the future and sort above everything real.
+        if (rec.get("published") or "") > TODAY:
+            out.append(f"{key}: published in the future ({rec['published']})")
         if rec.get("source") == "arxiv" and not rec.get("arxiv_id"):
             out.append(f"{key}: arXiv record without an arxiv_id")
         if rec.get("source") == "crossref" and not rec.get("doi"):

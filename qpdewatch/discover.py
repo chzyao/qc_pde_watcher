@@ -60,7 +60,10 @@ def search(query: str, rows: int = 100, from_date: str = "2015-01-01",
     params = {
         "query.bibliographic": query, "rows": rows,
         "filter": f"from-pub-date:{from_date},type:journal-article",
-        "select": "title,DOI,abstract,author,container-title,issued,"
+        # published-online/print and created are needed by best_date(); publisher
+        # drives the source label.
+        "select": "title,DOI,abstract,author,container-title,issued,publisher,"
+                  "published-online,published-print,created,"
                   "is-referenced-by-count,type",
     }
     if mailto:
@@ -71,11 +74,43 @@ def search(query: str, rows: int = 100, from_date: str = "2015-01-01",
         return json.load(resp)["message"]["items"]
 
 
+def _date_parts(item: dict, field: str) -> str:
+    parts = (item.get(field) or {}).get("date-parts") or [[]]
+    y, m, d = (list(parts[0]) + [None, None, None])[:3]
+    return f"{y:04d}-{m or 1:02d}-{d or 1:02d}" if y else ""
+
+
+def best_date(item: dict, today: str | None = None) -> str:
+    """The earliest date the work was actually available.
+
+    Crossref's `issued` is documented as the earliest known publication date,
+    but publishers routinely set it to a *planned print issue* — Elsevier in
+    particular — so an article online today can arrive carrying 2027-01-01. A
+    corpus sorted by date then opens on papers from the future.
+
+    Preference order is the earliest non-future of the real candidates, falling
+    back to `created` (the Crossref deposit stamp, which cannot be in the
+    future) and finally clamping. Clamping is last resort: a wrong-but-plausible
+    date is worse than an obviously-today one only if it is silent, and `check`
+    flags any that slip through.
+    """
+    today = today or date.today().isoformat()
+    candidates = [_date_parts(item, f) for f in
+                  ("published-online", "issued", "published-print", "created")]
+    real = sorted(d for d in candidates if d and d <= today)
+    if real:
+        return real[0]
+    created = _date_parts(item, "created")
+    if created and created <= today:
+        return created
+    return today
+
+
 def to_record(item: dict) -> dict:
     doi = (item.get("DOI") or "").lower()
     issued = item.get("issued", {}).get("date-parts", [[None]])[0]
-    y, m, d = (list(issued) + [None, None, None])[:3]
-    published = f"{y:04d}-{m or 1:02d}-{d or 1:02d}" if y else ""
+    y = issued[0] if issued else None
+    published = best_date(item)
     authors = [" ".join(p for p in (a.get("given"), a.get("family")) if p).strip()
                for a in item.get("author", [])]
     venue = (item.get("container-title") or [""])[0]
@@ -92,8 +127,10 @@ def to_record(item: dict) -> dict:
         "updated": published,
         "journal_ref": venue,
         "queries": [],
+        "publisher": item.get("publisher", ""),
         "crossref": {"doi": doi, "cites": item.get("is-referenced-by-count", 0),
                      "venue": venue, "year": y, "type": item.get("type"),
+                     "publisher": item.get("publisher", ""),
                      "checked": date.today().isoformat()},
     }
 
@@ -299,3 +336,31 @@ def backfill_abstracts(corpus: dict[str, dict], vocab, max_lookups: int = 150,
         f"{remaining} still queued")
     stats["remaining"] = remaining
     return stats
+
+
+def repair_dates(corpus: dict[str, dict], log=print) -> int:
+    """Re-fetch records whose stored date is in the future.
+
+    Only needed for records ingested before best_date() existed; new ones can
+    no longer acquire a future date. Cheap: there are a handful, and leaving
+    them makes the corpus sort open on papers that have not happened yet.
+    """
+    mailto = os.environ.get("CROSSREF_MAILTO") or None
+    today = date.today().isoformat()
+    broken = [r for r in corpus.values()
+              if r.get("source") == "crossref" and (r.get("published") or "") > today]
+    fixed = 0
+    for rec in broken:
+        item = fetch_doi(rec.get("doi", ""), mailto)
+        new = best_date(item, today) if item else today
+        if new and new != rec["published"]:
+            rec["published"] = new
+            rec["updated"] = new
+            fixed += 1
+        if item and item.get("publisher"):
+            rec["publisher"] = item["publisher"]
+            rec.setdefault("crossref", {})["publisher"] = item["publisher"]
+        time.sleep(POLITE_DELAY)
+    if broken:
+        log(f"  repaired {fixed} of {len(broken)} future-dated records")
+    return fixed

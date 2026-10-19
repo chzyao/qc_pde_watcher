@@ -16,6 +16,7 @@ from pathlib import Path
 
 from .config import (DATA_DIR, FORWARD_LABEL, PROBLEM_CLASS_ORDER, TAG_FIELDS,
                      Vocabularies)
+from .sources import load_rules
 
 
 def searchable(rec: dict) -> str:
@@ -59,12 +60,29 @@ def tag_record(rec: dict, vocab: Vocabularies) -> dict:
     return tags
 
 
-def build_rows(corpus: dict[str, dict], vocab: Vocabularies) -> list[dict]:
+def pending_abstract(corpus: dict[str, dict], vocab: Vocabularies) -> list[dict]:
+    """Screened-in records still missing an abstract.
+
+    They stay in corpus.jsonl so the weekly backfill keeps retrying them; they
+    are simply withheld from the published outputs until the text arrives.
+    """
+    return [r for r in corpus.values()
+            if tier_of(r, vocab) is not None and not (r.get("abstract") or "").strip()]
+
+
+def build_rows(corpus: dict[str, dict], vocab: Vocabularies,
+               source_rules=None, require_abstract: bool = True) -> list[dict]:
     """Screen, tag and flatten the corpus into export-ready rows (newest first)."""
+    source_rules = source_rules or load_rules()
     rows = []
     for rec in corpus.values():
         tier = tier_of(rec, vocab)
         if tier is None:
+            continue
+        # An entry with no abstract cannot be read or judged, and its tags are
+        # title-only guesses. Withhold it rather than publish a stub; it stays
+        # in the corpus and the weekly backfill keeps trying.
+        if require_abstract and not (rec.get("abstract") or "").strip():
             continue
         cr = rec.get("crossref") or {}
         tags = tag_record(rec, vocab)
@@ -76,6 +94,8 @@ def build_rows(corpus: dict[str, dict], vocab: Vocabularies) -> list[dict]:
             "uid": rec.get("uid") or arxiv_id or ("doi:" + doi.lower()),
             "tier": tier,
             "source": rec.get("source", "arxiv"),
+            "source_label": source_rules.label(rec),
+            "publisher": rec.get("publisher") or (cr.get("publisher") or ""),
             # An abstract-less record can only be tagged from its title, so it is
             # held out of every coverage statistic rather than counted as a paper
             # that fails to address an axis.

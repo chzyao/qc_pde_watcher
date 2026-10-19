@@ -13,7 +13,7 @@ import pytest
 from qpdewatch import favourites, store
 from qpdewatch.config import TAG_FIELDS, load_queries, load_vocabularies
 from qpdewatch.coverage import statistical_rows
-from qpdewatch.tag import build_rows, tag_record, tier_of
+from qpdewatch.tag import build_rows, pending_abstract, tag_record, tier_of
 
 
 @pytest.fixture(scope="module")
@@ -113,15 +113,35 @@ def test_problem_class_precedence_and_fallback(vocab):
 
 # --- statistics guard ----------------------------------------------------
 
-def test_statistics_exclude_adjacent_and_abstractless(vocab):
-    corpus = {
+@pytest.fixture
+def mixed_corpus():
+    return {
         "a": rec("Quantum algorithm for Navier-Stokes flow",
                  "We solve the Navier-Stokes equations.", uid="a", arxiv_id="a"),
         "b": rec("Quantum machine learning for chemistry",
                  "Variational quantum circuits for molecules.", uid="b", arxiv_id="b"),
         "c": rec("Quantum algorithm for the Poisson equation", "", uid="c", arxiv_id="c"),
     }
-    rows = build_rows(corpus, vocab)
+
+
+def test_abstractless_records_are_withheld_from_output(vocab, mixed_corpus):
+    # A paper with no abstract cannot be read or judged, and its tags would be
+    # title-only guesses, so it is not published at all.
+    rows = build_rows(mixed_corpus, vocab)
+    assert {r["uid"] for r in rows} == {"a", "b"}
+    assert [r["uid"] for r in pending_abstract(mixed_corpus, vocab)] == ["c"]
+
+
+def test_withheld_records_stay_in_the_corpus(vocab, mixed_corpus):
+    # Withholding is a display decision, not deletion: the record must survive
+    # so the weekly backfill keeps retrying it.
+    assert "c" in mixed_corpus
+    rows = build_rows(mixed_corpus, vocab, require_abstract=False)
+    assert {r["uid"] for r in rows} == {"a", "b", "c"}
+
+
+def test_statistics_exclude_adjacent_and_abstractless(vocab, mixed_corpus):
+    rows = build_rows(mixed_corpus, vocab, require_abstract=False)
     assert {r["uid"]: r["tier"] for r in rows} == {"a": "core", "b": "adjacent", "c": "core"}
     assert [r["uid"] for r in statistical_rows(rows)] == ["a"]
 

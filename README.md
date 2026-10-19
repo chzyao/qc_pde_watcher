@@ -66,6 +66,22 @@ reproducible record of what they returned.
 `config/seed_dois.toml` is the escape hatch: paste a DOI and `discover` fetches it whatever
 the queries return. Seeds bypass the ingest screen because you asked for them on purpose.
 
+**Every published record has an abstract.** A paper you cannot read is a paper you cannot
+judge, and its tags would be title-only guesses, so `build` withholds any screened-in record
+whose abstract is still missing. Withheld is not deleted: the record stays in
+`data/corpus.jsonl` and `discover` keeps retrying it against arXiv by title match, so it
+appears as soon as the text is found. `qpdewatch stats` and `build` both report the pending
+count. `build --include-abstractless` overrides this if you ever need the full list.
+
+**Source labels.** Every record carries a `source_label` — `arXiv (preprint only)`,
+`Academia.edu`, `APS`, `Elsevier`, `IOP`, `Springer`, `Nature Portfolio`, `AIP`, `IEEE`,
+`MDPI` and so on — driven by ordered regex rules in `config/sources.toml` and exposed as a
+facet in the viewer. The rules match against `"<publisher> | <venue>"`, first match wins, so
+specific journals go above the publishers that own them. A record with no venue at all is
+labelled a preprint: in practice "arXiv" is most useful as a tag meaning *not published
+anywhere yet*, since a paper on arXiv **and** in Physical Review is more usefully filed
+under APS.
+
 **Two tiers.**
 
 | Tier | Meaning | In the statistics? |

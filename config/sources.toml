@@ -1,0 +1,87 @@
+# Where a paper came from, as a short label for filtering.
+#
+# Rules are ORDERED and the first match wins, so put specific journals above the
+# publishers that own them. Each `match` is a case-insensitive regex tested
+# against "<publisher> | <venue>" — publisher is present on records harvested
+# after 2026-10-19, venue on all of them, so the rules are written to work from
+# venue alone.
+#
+# A record with no venue at all is labelled `preprint_label`: it exists only as
+# a preprint. That is the useful distinction in practice — "arXiv" as a tag
+# means "not published anywhere yet", while a paper on arXiv *and* in Physical
+# Review is more usefully filed under APS.
+
+preprint_label = "arXiv (preprint only)"
+fallback = "Other journal"
+
+[[rule]]
+label = "Academia.edu"
+match = 'Academia\.edu|Academia (Quantum|Engineering|Biology|Materials|Medicine|Letters)'
+
+[[rule]]
+label = "Quantum (Verein)"
+match = '\| *Quantum *$|Verein zur Forderung'
+
+[[rule]]
+label = "APS"
+match = 'American Physical Society|Physical Review|\bPRX\b|Reviews of Modern Physics'
+
+[[rule]]
+label = "Nature Portfolio"
+match = 'Nature|npj |Scientific Reports|Communications (Physics|Mathematics)'
+
+[[rule]]
+label = "IOP"
+match = 'IOP Publishing|Quantum Science and Technology|New Journal of Physics|Physica Scripta|Journal of Physics'
+
+[[rule]]
+label = "Springer"
+match = 'Springer|Quantum Information Processing|Quantum Machine Intelligence|EPJ |European Physical Journal'
+
+[[rule]]
+label = "Elsevier"
+match = 'Elsevier|Computer Physics Communications|Automatica|Journal of Computational Physics|Future Generation|Applied Soft Computing|Neural Networks|Physics Letters|Annals of Physics'
+
+[[rule]]
+label = "AIP"
+match = 'AIP Publishing|Physics of Fluids|The Journal of Chemical Physics|AVS Quantum Science|Journal of Mathematical Physics'
+
+[[rule]]
+label = "IEEE"
+match = '\bIEEE\b'
+
+[[rule]]
+label = "ACM"
+match = 'Association for Computing Machinery|\bACM\b'
+
+[[rule]]
+label = "Wiley"
+match = 'Wiley|Advanced Quantum Technologies|Annalen der Physik'
+
+[[rule]]
+label = "MDPI"
+match = '\bMDPI\b|Entropy|Quantum Reports|Applied Sciences|Mathematics$|Symmetry'
+
+[[rule]]
+label = "Frontiers"
+match = 'Frontiers'
+
+[[rule]]
+label = "Taylor & Francis"
+match = 'Taylor & Francis|Informa'
+
+[[rule]]
+label = "SIAM"
+match = '\bSIAM\b|Society for Industrial'
+
+[[rule]]
+label = "Cambridge / Oxford UP"
+match = 'Cambridge University Press|Oxford University Press|Journal of Fluid Mechanics'
+
+[[rule]]
+label = "Annual Reviews"
+match = 'Annual Review'
+
+[[rule]]
+label = "Conference proceedings"
+match = 'Proceedings|Conference|Symposium|Workshop'

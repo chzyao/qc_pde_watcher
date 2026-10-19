@@ -66,7 +66,8 @@ def do_discover(args, corpus: dict | None = None) -> dict:
 def do_build(args, corpus: dict | None = None) -> None:
     corpus = corpus if corpus is not None else store.load_corpus()
     vocab = load_vocabularies()
-    rows = tag.build_rows(corpus, vocab)
+    rows = tag.build_rows(corpus, vocab,
+                          require_abstract=not args.include_abstractless)
     if not rows:
         raise SystemExit("no records survived the screen — check config/vocabularies.toml")
     csv_path = tag.write_csv(rows)
@@ -74,10 +75,13 @@ def do_build(args, corpus: dict | None = None) -> None:
     html = site.build(rows, vocab)
     core = coverage.statistical_rows(rows)
     n_adj = sum(1 for r in rows if r["tier"] == "adjacent")
-    n_noab = sum(1 for r in rows if r["tier"] == "core" and not r["has_abstract"])
     n_cfd = sum(1 for r in core if r["cfd_facing"])
-    print(f"  {len(rows)} rows: {len(core)} core with abstracts ({n_cfd} CFD-facing), "
-          f"{n_noab} core without abstracts, {n_adj} adjacent")
+    pending = tag.pending_abstract(corpus, vocab)
+    print(f"  {len(rows)} published rows: {len(core)} core ({n_cfd} CFD-facing), "
+          f"{n_adj} adjacent")
+    if pending and not args.include_abstractless:
+        print(f"  {len(pending)} record(s) withheld pending an abstract "
+              f"(kept in the corpus; `qpdewatch discover` retries them)")
     print(f"  -> {csv_path.name}, "
           f"{', '.join(p.name for p in tables)}, {html.relative_to(html.parent.parent)}")
     if not args.no_figures:
@@ -108,12 +112,14 @@ def do_check(_args) -> None:
 def do_stats(_args) -> None:
     corpus = store.load_corpus()
     vocab = load_vocabularies()
-    rows = tag.build_rows(corpus, vocab)
+    rows = tag.build_rows(corpus, vocab,
+                          require_abstract=not args.include_abstractless)
     cfd = [r for r in rows if r["cfd_facing"]]
     print(f"records on file : {len(corpus)}")
     print(f"pass screen     : {len(rows)}")
     print(f"CFD-facing      : {len(cfd)}")
     print(f"crossref matched: {sum(1 for r in rows if r['citations_crossref'] is not None)}")
+    print(f"pending abstract: {len(tag.pending_abstract(corpus, vocab))}")
     print(f"state           : {store.load_state()}")
     print("\nby year (CFD-facing):")
     years: dict[int, int] = {}
@@ -139,6 +145,8 @@ def main(argv: list[str] | None = None) -> None:
 
     def add_build_args(p):
         p.add_argument("--no-figures", action="store_true")
+        p.add_argument("--include-abstractless", action="store_true",
+                       help="publish records that still have no abstract")
 
     def add_discover_args(p):
         p.add_argument("--rows", type=int, default=100, help="Crossref hits per query")

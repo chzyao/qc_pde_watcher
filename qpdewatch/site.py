@@ -27,6 +27,7 @@ def _pack(rows: list[dict], vocab: Vocabularies, starred: dict[str, str]) -> dic
         "doc": list(vocab.document_types),
         "set": list(vocab.problem_settings),
     }
+    src_names = sorted({r["source_label"] for r in rows})
     idx = {k: {n: i for i, n in enumerate(v)} for k, v in names.items()}
     split = lambda s: [p for p in (x.strip() for x in s.split(";")) if p]
     to_idx = lambda key, s: sorted(idx[key][x] for x in split(s) if x in idx[key])
@@ -38,6 +39,7 @@ def _pack(rows: list[dict], vocab: Vocabularies, starred: dict[str, str]) -> dic
             "lbl": r["arxiv_id"] or (r["doi"] or ""),
             "u": r["url"],
             "tr": 1 if r["tier"] == "adjacent" else 0,
+            "sl": r["source_label"],
             "ha": 1 if r["has_abstract"] else 0,
             "au": r["authors"], "na": r["n_authors"],
             "c": r["citations_crossref"], "v": r["venue"] or "",
@@ -52,7 +54,7 @@ def _pack(rows: list[dict], vocab: Vocabularies, starred: dict[str, str]) -> dic
             "s": r["first_seen"], "ab": r["abstract"],
         })
     classes = sorted({r["problem_class"] for r in rows})
-    return {"rows": packed, **names, "pclass": classes,
+    return {"rows": packed, **names, "pclass": classes, "src": src_names,
             "seed": {k: v for k, v in starred.items()}}
 
 
@@ -150,6 +152,7 @@ TEMPLATE = r"""<!DOCTYPE html>
   .chip.inv { background:#e8f1ff; color:#14478f; }
   .chip.adj { background:#fff4e0; color:#8a5a00; }
   .chip.noab { background:#f0f0f0; color:#888; }
+  .chip.src { background:#eef6ee; color:#2a5c2a; }
   .badge { font-size:10px; background:var(--accent); color:#fff; border-radius:3px;
       padding:1px 5px; margin-left:6px; vertical-align:1px; }
   tr.abs td { background:#fbfbfc; color:#333; font-size:13px; padding-top:0; }
@@ -175,6 +178,7 @@ TEMPLATE = r"""<!DOCTYPE html>
   <details class="facet" id="f-cap"><summary>Capability axis</summary><div class="panel"></div></details>
   <details class="facet" id="f-doc"><summary>Document type</summary><div class="panel"></div></details>
   <details class="facet" id="f-pcl"><summary>Problem</summary><div class="panel"></div></details>
+  <details class="facet" id="f-src"><summary>Source</summary><div class="panel"></div></details>
   <label class="toggle" title="Papers with a quantum method but no PDE target — browsable, and excluded from every coverage statistic"><input type="checkbox" id="adj"> Adjacent</label>
   <label class="toggle"><input type="checkbox" id="cfd"> CFD</label>
   <label class="toggle"><input type="checkbox" id="rev"> Reviews</label>
@@ -205,11 +209,11 @@ paper advertises — a lower bound, not a reading of the full text.</p>
 <script>
 const P = JSON.parse(document.getElementById('payload').textContent);
 const ROWS = P.rows, META = P.meta;
-const NAMES = {f:P.fam, p:P.pde, x:P.cap, dt:P.doc, pc:P.pclass};
+const NAMES = {f:P.fam, p:P.pde, x:P.cap, dt:P.doc, pc:P.pclass, sl:P.src};
 // AND within the analytical facets (find papers covering BOTH axes); OR within
 // the categorical ones, where a paper only ever has one value.
-const MODE = {f:'and', p:'and', x:'and', dt:'or', pc:'or'};
-const sel = {f:new Set(), p:new Set(), x:new Set(), dt:new Set(), pc:new Set()};
+const MODE = {f:'and', p:'and', x:'and', dt:'or', pc:'or', sl:'or'};
+const sel = {f:new Set(), p:new Set(), x:new Set(), dt:new Set(), pc:new Set(), sl:new Set()};
 let sortKey = 'd', sortDir = -1;
 
 const newCutoff = (() => {
@@ -341,7 +345,7 @@ function buildFacet(id, key, names, counter) {
     label.innerHTML = `<input type="checkbox" value="${i}"><span>${esc(name)}</span>` +
                       `<span class="n">${n}</span>`;
     label.querySelector('input').addEventListener('change', e => {
-      const v = MODE[key] === 'or' && key === 'pc' ? name : i;
+      const v = (key === 'pc' || key === 'sl') ? name : i;
       e.target.checked ? sel[key].add(v) : sel[key].delete(v);
       syncSummary(id, key);
       render();
@@ -350,7 +354,7 @@ function buildFacet(id, key, names, counter) {
   });
 }
 const BASE = {f:'Algorithm family', p:'PDE target', x:'Capability axis',
-              dt:'Document type', pc:'Problem'};
+              dt:'Document type', pc:'Problem', sl:'Source'};
 function syncSummary(id, key) {
   const s = document.querySelector('#' + id + ' summary');
   s.textContent = sel[key].size ? `${BASE[key]} (${sel[key].size})` : BASE[key];
@@ -360,6 +364,7 @@ buildFacet('f-pde', 'p',  NAMES.p,  i => ROWS.filter(r => r.p.includes(i)).lengt
 buildFacet('f-cap', 'x',  NAMES.x,  i => ROWS.filter(r => r.x.includes(i)).length);
 buildFacet('f-doc', 'dt', NAMES.dt, i => ROWS.filter(r => r.dt.includes(i)).length);
 buildFacet('f-pcl', 'pc', NAMES.pc, i => ROWS.filter(r => r.pc === NAMES.pc[i]).length);
+buildFacet('f-src', 'sl', NAMES.sl, i => ROWS.filter(r => r.sl === NAMES.sl[i]).length);
 document.addEventListener('click', e => {
   document.querySelectorAll('details.facet[open]').forEach(d => {
     if (!d.contains(e.target)) d.removeAttribute('open');
@@ -392,6 +397,7 @@ function current() {
     if (!match(r.f, 'f') || !match(r.p, 'p') || !match(r.x, 'x') || !match(r.dt, 'dt'))
       return false;
     if (sel.pc.size && !sel.pc.has(r.pc)) return false;
+    if (sel.sl.size && !sel.sl.has(r.sl)) return false;
     if (terms.length) {
       const hay = (r.t + ' ' + r.ab + ' ' + r.au).toLowerCase();
       if (!terms.every(t => hay.includes(t))) return false;
@@ -426,6 +432,7 @@ function render() {
     const chips = [
       r.rv ? '<span class="chip rev">review</span>' : '',
       r.tr ? '<span class="chip adj">adjacent</span>' : '',
+      `<span class="chip src">${esc(r.sl)}</span>`,
       r.ha ? '' : '<span class="chip noab">no abstract</span>',
       r.pc !== 'Forward (assumed)' ? `<span class="chip inv">${esc(r.pc)}</span>` : '',
       ...r.f.map(i => `<span class="chip">${esc(NAMES.f[i])}</span>`),
@@ -479,7 +486,7 @@ document.getElementById('reset').addEventListener('click', () => {
   Object.values(sel).forEach(s => s.clear());
   document.querySelectorAll('.panel input').forEach(i => i.checked = false);
   Object.keys(BASE).forEach(k => syncSummary({f:'f-fam',p:'f-pde',x:'f-cap',
-                                              dt:'f-doc',pc:'f-pcl'}[k], k));
+                                              dt:'f-doc',pc:'f-pcl',sl:'f-src'}[k], k));
   render();
 });
 
@@ -504,13 +511,13 @@ document.getElementById('export').addEventListener('click', () => {
 });
 document.getElementById('csv').addEventListener('click', () => {
   const cols = ['uid','published','title','authors','citations_crossref','venue',
-                'tier','has_abstract','cfd_facing','is_review','problem_class',
+                'tier','source_label','has_abstract','cfd_facing','is_review','problem_class',
                 'algorithm_families','pde_targets','capability_axes','starred','url'];
   const q = v => '"' + String(v === null || v === undefined ? '' : v).replace(/"/g, '""') + '"';
   const lines = [cols.join(',')];
   for (const r of current()) {
     lines.push([r.i, r.d, r.t, r.au, r.c === null ? '' : r.c, r.v,
-                r.tr ? 'adjacent' : 'core', r.ha, r.q, r.rv, r.pc,
+                r.tr ? 'adjacent' : 'core', r.sl, r.ha, r.q, r.rv, r.pc,
                 r.f.map(i => NAMES.f[i]).join('; '),
                 r.p.map(i => NAMES.p[i]).join('; '),
                 r.x.map(i => NAMES.x[i]).join('; '),

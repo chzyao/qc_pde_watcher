@@ -10,6 +10,27 @@ vocabulary versions are not comparable.
 
 ## Unreleased
 
+### Changed
+- **An abstract is now required for publication.** Screened-in records without
+  one are withheld from `corpus.csv` and the viewer rather than shown as stubs
+  with title-only tags. They stay in `corpus.jsonl` and the backfill keeps
+  retrying, so this is a display decision, not deletion. This supersedes the
+  earlier approach of publishing them flagged and excluding them from
+  statistics. 300 records were withheld on the first build under this rule.
+
+### Added
+- `source_label` on every record, from ordered rules in `config/sources.toml`:
+  `arXiv (preprint only)`, `Academia.edu`, `APS`, `Elsevier`, `IOP`, `Springer`,
+  `Nature Portfolio`, `AIP`, `IEEE`, `ACM`, `Wiley`, `MDPI` and more. Exposed as
+  a viewer facet and a CSV column.
+
+### Fixed
+- **Future publication dates.** Crossref's `issued` is often a *planned print
+  issue*, so Elsevier records arrived dated 2027-01-01 and sorted above
+  everything real. `best_date()` now takes the earliest non-future of
+  `published-online`, `issued`, `published-print` and `created`. The 8 affected
+  records were repaired in place; `check` treats a future date as an error.
+
 ### Vocabulary v0.4
 - **Screen recall fix.** `quantum_terms` did not recognise QML, quantum lattice
   Boltzmann, Lindbladian, reservoir-computing or quantum-walk vocabulary, so
