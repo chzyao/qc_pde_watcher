@@ -169,7 +169,10 @@ Python regexes in TOML literal strings (single-quoted, so backslashes need no es
 Add a family, split an axis, tighten a pattern, then `python -m qpdewatch build` and the
 whole corpus is re-tagged. Bump `schema_version` when you change semantics — it is a quoted
 string on a 0.x series (`"0.1"`, `"0.2"`, `"0.3"`) and stays below 1.0 while the vocabulary
-is still moving; quoting matters so `"0.10"` sorts after `"0.9"`. It is stamped
+is still moving. Quoting matters because an unquoted `0.10` is parsed as a float equal to
+`0.1`, silently colliding the tenth revision with the first. Note that string ordering is
+*not* version ordering either — `"0.10" < "0.9"` lexically — so compare versions by reading
+the changelog, not by sorting. It is stamped
 into the HTML header so a published table says which vocabulary produced it.
 
 Adding a query to `config/queries.toml` costs one HTTP round trip per run. If a new query
@@ -182,9 +185,13 @@ Two vocabularies classify the paper rather than its subject.
 `[document_types]` detects reviews, surveys, perspectives, tutorials, benchmark studies and
 software releases. These patterns are deliberately **precision-first**: they fire on
 self-description ("this survey", "we present a comprehensive review") or on title position,
-never on a bare "we review", which appears in ordinary research intros constantly. Tuning it
-the loose way flagged 16 papers of which 3 were plainly not reviews; the current rules flag
-10, all genuine. A missed review is a minor annoyance, a research paper mislabelled as a
+never on a bare "we review", which appears in ordinary research intros constantly. The loose
+version flagged 16 papers; tightening removed **6** of them and the current rules flag 10,
+all genuine. Of the 6 removed, 3 were plainly not reviews (a noise-gate paper, a lattice-gas
+algorithm paper, and a terse MHD title whose abstract merely opened "We review") and 3 are
+better described as something else — they are now picked up by `Perspective / roadmap`,
+`Tutorial / pedagogical` and `Benchmark / comparative study` respectively, so they are still
+findable, just not as reviews. A missed review is a minor annoyance, a research paper mislabelled as a
 survey is misleading. `is_review` in the CSV is the narrow Review/survey flag only — use the
 document-type facet if you also want perspectives and tutorials.
 
