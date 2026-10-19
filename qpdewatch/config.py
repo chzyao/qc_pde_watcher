@@ -28,7 +28,7 @@ FORWARD_LABEL = "Forward (assumed)"
 class Vocabularies:
     """Compiled regex vocabularies plus the relevance screen."""
 
-    schema_version: int
+    schema_version: str
     algorithm_families: dict[str, re.Pattern] = field(default_factory=dict)
     pde_targets: dict[str, re.Pattern] = field(default_factory=dict)
     capability_axes: dict[str, re.Pattern] = field(default_factory=dict)
@@ -52,7 +52,9 @@ def load_vocabularies(path: Path | None = None) -> Vocabularies:
     if unknown:
         raise ValueError(f"cfd_pde_targets names absent from [pde_targets]: {sorted(unknown)}")
     return Vocabularies(
-        schema_version=raw["schema_version"],
+        # str() so an unquoted TOML value still works, though quoting is correct:
+        # "0.10" must sort after "0.9", which a float cannot represent.
+        schema_version=str(raw["schema_version"]),
         algorithm_families=compile_(raw["algorithm_families"]),
         pde_targets=compile_(raw["pde_targets"]),
         capability_axes=compile_(raw["capability_axes"]),

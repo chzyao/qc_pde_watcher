@@ -118,13 +118,15 @@ Python regexes in TOML literal strings (single-quoted, so backslashes need no es
 ```
 
 Add a family, split an axis, tighten a pattern, then `python -m qpdewatch build` and the
-whole corpus is re-tagged. Bump `schema_version` when you change semantics — it is stamped
+whole corpus is re-tagged. Bump `schema_version` when you change semantics — it is a quoted
+string on a 0.x series (`"0.1"`, `"0.2"`, `"0.3"`) and stays below 1.0 while the vocabulary
+is still moving; quoting matters so `"0.10"` sorts after `"0.9"`. It is stamped
 into the HTML header so a published table says which vocabulary produced it.
 
 Adding a query to `config/queries.toml` costs one HTTP round trip per run. If a new query
 should back-fill history, run `python -m qpdewatch harvest --full` once.
 
-### Document type and problem setting (schema v3)
+### Document type and problem setting (v0.3)
 
 Two vocabularies classify the paper rather than its subject.
 
@@ -151,19 +153,27 @@ an absence of evidence rather than a positive detection.
   not a reading of the full text. A paper can treat boundary conditions carefully in §4
   without saying so in the abstract. Axis totals are therefore **lower bounds**; column
   marginals are robust, individual cells are approximate.
-- `schema_version = 2` fixes two defects found in the first pass: there was no
+- **v0.3 splits quantum machine learning out of the variational family.** It had been
+  folded into `Variational / VQA / quantum ML`, which conflated two different things: a
+  variational PDE solver optimises circuit parameters against a residual, while a QML
+  surrogate learns a map from data. `Quantum machine learning / surrogates` now covers
+  QPINNs, quantum neural operators, reservoir computing, kernels, generative models and
+  reinforcement learning, and resolves 60 papers — 30 of which are *not* variational, so
+  they were previously filed under a family name that misdescribed them. Papers that are
+  both keep both tags.
+- `v0.2` fixes two defects found in the first pass: there was no
   Lindbladian/open-system family (the density-matrix route to non-unitary dynamics was
   invisible, split across Schrödingerisation and LCU/LCHS), and the Boltzmann PDE target
   required the literal phrase "Boltzmann equation", so bare "lattice Boltzmann" did not
   match and 23 of 64 lattice-Boltzmann papers were wrongly tagged as not CFD-facing.
-  Numbers produced under v1 and v2 are not directly comparable. Concretely: the gap-map
-  report was written against 700 screened / 201 CFD-facing papers under v1; the seeded
-  corpus here is 733 screened / 225 CFD-facing under v2, from 1,392 harvested records.
+  Numbers produced under different vocabulary versions are not directly comparable. Concretely: the gap-map
+  report was written against 700 screened / 201 CFD-facing papers under v0.1; the seeded
+  corpus here is 733 screened / 225 CFD-facing under v0.2 and later, from 1,392 harvested records.
   The increase comes from the lattice-Boltzmann fix (quantum lattice Boltzmann goes from
   43 to 66 CFD-facing papers, overtaking the variational family as the largest) and from
   three added Lindbladian/open-system queries. `docs/gap_map.md` reproduces the report as
   written; its figures and percentages are the v1 numbers, while `docs/*.png` are
-  regenerated under v2 and will differ.
+  regenerated under the current vocabulary and will differ.
 - Some classical Koopman and tensor-train work matches the quantum screen. That is
   deliberate — quantum-inspired tensor-network solvers are the moving classical baseline —
   but it means family counts are not purely quantum.

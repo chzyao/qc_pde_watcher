@@ -1,3 +1,8 @@
+# NOTE: GitHub only runs `schedule:` triggers for workflows that exist on the
+# repository's DEFAULT branch. A copy of this file living on a feature branch
+# will never fire on a cron, however correct it is. Merge to main to arm it.
+# Scheduled workflows are also auto-disabled after 60 days without repository
+# activity; GitHub emails first, and `workflow_dispatch` re-enables them.
 name: weekly update
 
 on:
@@ -41,13 +46,19 @@ jobs:
       - name: Summarise
         run: python -m qpdewatch stats >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Commit if anything changed
+      - name: Commit if the corpus changed
         run: |
           git config user.name  "quantum-pde-watch bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add data docs
-          if git diff --cached --quiet; then
-            echo "no changes"
+          # Every build rewrites docs/index.html (it stamps today's date) and the
+          # CSVs, so "anything changed" is always true and would add ~2.4 MB to
+          # history every week forever. The corpus itself is the real signal:
+          # if no paper arrived and no citation count moved, throw the rebuild away.
+          if git diff --cached --quiet -- data/corpus.jsonl; then
+            echo "no new papers and no citation changes; discarding regenerated outputs"
+            git reset -q
+            git checkout -- data docs
           else
             NEW=$(git diff --cached --numstat -- data/corpus.jsonl | awk '{print $1}')
             git commit -m "weekly update $(date -u +%Y-%m-%d): ${NEW:-0} corpus line(s) added"

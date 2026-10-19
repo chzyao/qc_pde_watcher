@@ -5,12 +5,18 @@
 # Edit freely: tags are recomputed from scratch on every run, so a vocabulary change
 # propagates to the whole corpus, not just to new papers.
 #
-# schema_version 1 = the vocabulary used for the original 700-paper corpus.
-# schema_version 2 = adds the Lindbladian/open-system family and fixes the
-#                    lattice-Boltzmann miss in the Boltzmann PDE target.
-# schema_version 3 = adds [document_types] (review/survey detection) and
-#                    [problem_settings] (inverse vs forward).
-schema_version = 3
+# Versions are a 0.x series for the duration of the PhD's early stage: the
+# vocabulary is expected to keep moving, and nothing downstream should treat a
+# version as stable. Quote the value — it is a string, not a number, so that
+# 0.10 sorts after 0.9 rather than equalling 0.1.
+#
+# v0.1 = the vocabulary used for the original 700-paper corpus.
+# v0.2 = adds the Lindbladian/open-system family and fixes the lattice-Boltzmann
+#        miss in the Boltzmann PDE target.
+# v0.3 = adds [document_types] (review/survey detection) and [problem_settings]
+#        (inverse vs forward); splits quantum machine learning out of the
+#        variational family into its own algorithm family.
+schema_version = "0.3"
 
 # ---------------------------------------------------------------------------
 # Relevance screen. A record is kept if it matches quantum_terms AND pde_terms
@@ -43,7 +49,8 @@ cfd_pde_targets = [
 "Lindbladian / open-system embedding" = '(Lindblad|\bGKSL\b|Gorini.?Kossakowski|open quantum system|dissipative (engineering|map|channel|process)|Kraus (operator|map|representation)|Stinespring|density matrix encoding|completely positive trace)'
 "Time-marching / Taylor / Dyson ODE solvers" = '(time.?marching|truncated Taylor|Dyson series|uniform singular value amplification|spectral method for (ODE|differential))'
 "Carleman / Koopman linear embedding" = '(Carleman|Koopman.?von Neumann|\bKvN\b|Koopman operator|linear embedding|level.?set method)'
-"Variational / VQA / quantum ML" = '(variational quantum|\bVQA\b|\bVQE\b|\bQAOA\b|ansatz|parameteri[sz]ed quantum circuit|parametri[sz]ed quantum circuit|quantum neural|physics.?informed quantum|differentiable quantum|quantum machine learning|quantum kernel)'
+"Variational / VQA" = '(variational quantum|\bVQA\b|\bVQE\b|\bQAOA\b|ansatz|parameteri[sz]ed quantum circuit|parametri[sz]ed quantum circuit|differentiable quantum|variational (algorithm|solver|principle|ansatz)|McLachlan|variational (imaginary|real).?time)'
+"Quantum machine learning / surrogates" = '(quantum machine learning|\bQML\b|quantum neural (network|operator)|\bQNN\b|quantum (convolutional|recurrent|graph|generative) (neural )?(network|model)|physics.?informed (quantum|neural network)|\bQPINN\b|\bPINN\b|quantum reservoir computing|quantum (kernel|feature map|feature encoding|data encoding)|quantum transformer|quantum attention|neural operator|DeepONet|Fourier neural operator|\bFNO\b|surrogate (model|circuit)|quantum reinforcement learning|quantum extreme learning|data.?driven (model|surrogate))'
 "Quantum lattice Boltzmann / lattice gas" = '(lattice Boltzmann|lattice gas|\bQLBM\b|Carleman.?lattice|collision.{0,25}streaming|streaming.{0,25}collision)'
 "Quantum annealing / QUBO" = '(quantum anneal|annealer|\bQUBO\b|D.?Wave|Ising machine)'
 "Tensor networks / quantum-inspired" = '(tensor network|matrix product state|\bMPS\b|quantum.?inspired|tensor train|quantics|quantized tensor)'

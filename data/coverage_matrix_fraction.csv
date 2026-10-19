@@ -1,13 +1,14 @@
-algorithm_family,n_papers,Nonlinearity handling,2D / 3D spatial problems,Long-time / time-dependent integration,Boundary conditions,Explicit resource estimate (qubits/T-gates),Hardware execution (real QPU),Classical baseline comparison,Readout / observable extraction,Error / convergence analysis,State preparation / data loading,Noise / error mitigation on NISQ,Multiphysics / coupling to classical solver,Condition number / preconditioning,Complex geometry / unstructured mesh
-Quantum lattice Boltzmann / lattice gas,66,0.379,0.288,0.258,0.121,0.136,0.106,0.076,0.136,0.015,0.106,0.015,0.015,0.015,0.015
-Variational / VQA / quantum ML,49,0.469,0.122,0.143,0.102,0.122,0.163,0.143,0.102,0.041,0.061,0.224,0.041,0.041,0.0
-Carleman / Koopman linear embedding,46,0.674,0.217,0.152,0.174,0.152,0.087,0.043,0.043,0.13,0.087,0.022,0.022,0.022,0.022
-QSVT / QSP / block-encoding,29,0.483,0.241,0.241,0.172,0.207,0.034,0.103,0.103,0.069,0.138,0.034,0.034,0.034,0.034
-Tensor networks / quantum-inspired,21,0.143,0.429,0.095,0.048,0.048,0.143,0.286,0.143,0.143,0.0,0.048,0.048,0.0,0.095
+algorithm_family,n_papers,Nonlinearity handling,2D / 3D spatial problems,Long-time / time-dependent integration,Boundary conditions,Explicit resource estimate (qubits/T-gates),Classical baseline comparison,Hardware execution (real QPU),Readout / observable extraction,Error / convergence analysis,State preparation / data loading,Noise / error mitigation on NISQ,Condition number / preconditioning,Multiphysics / coupling to classical solver,Complex geometry / unstructured mesh
+Quantum lattice Boltzmann / lattice gas,66,0.379,0.288,0.258,0.121,0.136,0.076,0.106,0.136,0.015,0.106,0.015,0.015,0.015,0.015
+Carleman / Koopman linear embedding,46,0.674,0.217,0.152,0.174,0.152,0.043,0.087,0.043,0.13,0.087,0.022,0.022,0.022,0.022
+Variational / VQA,42,0.5,0.143,0.167,0.119,0.167,0.095,0.19,0.143,0.048,0.071,0.262,0.071,0.048,0.0
+QSVT / QSP / block-encoding,29,0.483,0.241,0.241,0.172,0.207,0.103,0.034,0.103,0.069,0.138,0.034,0.034,0.034,0.034
+Quantum machine learning / surrogates,25,0.48,0.16,0.12,0.04,0.04,0.24,0.04,0.04,0.04,0.04,0.08,0.08,0.08,0.04
+Tensor networks / quantum-inspired,21,0.143,0.429,0.095,0.048,0.048,0.286,0.143,0.143,0.143,0.0,0.048,0.0,0.048,0.095
 LCU / LCHS,15,0.4,0.2,0.133,0.333,0.067,0.067,0.067,0.0,0.133,0.067,0.0,0.0,0.0,0.067
-QLSA (HHL-lineage linear solvers),14,0.571,0.143,0.071,0.214,0.143,0.214,0.143,0.071,0.286,0.143,0.143,0.071,0.143,0.0
+QLSA (HHL-lineage linear solvers),14,0.571,0.143,0.071,0.214,0.143,0.143,0.214,0.071,0.286,0.143,0.143,0.143,0.071,0.0
 Schrodingerisation / unitary dilation,9,0.444,0.111,0.111,0.111,0.0,0.111,0.111,0.0,0.111,0.0,0.0,0.0,0.0,0.0
-Nonlinear via measurement / homotopy / perturbation,8,0.75,0.125,0.25,0.125,0.125,0.125,0.0,0.125,0.125,0.0,0.0,0.0,0.0,0.0
+Nonlinear via measurement / homotopy / perturbation,8,0.75,0.125,0.25,0.125,0.125,0.0,0.125,0.125,0.125,0.0,0.0,0.0,0.0,0.0
 Lindbladian / open-system embedding,6,0.333,0.0,0.0,0.167,0.0,0.0,0.0,0.0,0.333,0.167,0.167,0.0,0.0,0.0
 Time-marching / Taylor / Dyson ODE solvers,6,0.333,0.333,0.833,0.167,0.167,0.0,0.0,0.167,0.167,0.0,0.0,0.0,0.0,0.0
-Amplitude estimation / Grover readout,6,0.167,0.333,0.0,0.0,0.0,0.167,0.333,0.5,0.0,0.167,0.0,0.167,0.0,0.0
+Amplitude estimation / Grover readout,6,0.167,0.333,0.0,0.0,0.0,0.333,0.167,0.5,0.0,0.167,0.0,0.0,0.167,0.0
