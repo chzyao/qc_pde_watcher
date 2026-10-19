@@ -251,6 +251,50 @@ polite pool.
 
 ---
 
+## Maintenance
+
+Written for the case that actually matters: you come back after four months and
+need to change something without breaking a corpus you can no longer re-derive.
+
+**What is source and what is derived.** `data/corpus.jsonl`, `data/favourites.txt`,
+`data/state.json`, `config/` and `qpdewatch/` are the source of truth and are tracked.
+Everything else under `data/` and `docs/` is derived, gitignored, and rebuilt by
+`qpdewatch build` in seconds. If you ever see a derived file in a diff, something has gone
+wrong with `.gitignore`. `docs/gap_map.md` is prose, so it *is* tracked.
+
+**Before changing a regex, run the tests.** `pytest` (31 tests, offline, under a second).
+They exist because tagging fails silently: a pattern that stops matching changes every
+percentage in the gap map and nothing in the output looks broken. The suite pins the
+behaviours that were expensive to get right — the review-detection false positives, the
+`Forward (assumed)` fallback, Crossref de-duplication, and the rule that adjacent and
+abstract-less papers never enter a statistic. Vocabulary v0.4 exists because a test caught
+that five algorithm families were invisible to the screen.
+
+**After changing a vocabulary**, bump `schema_version`, note it in `CHANGELOG.md` with the
+before/after counts, and remember that figures and percentages from different versions are
+not comparable.
+
+**`qpdewatch check`** validates the stored corpus: required fields, ISO dates, keys matching
+their records, and records claiming the same DOI or title. Errors fail CI; duplicates are
+warnings, because which copy to keep is your call. It runs in CI and in the weekly job.
+
+**If the weekly job goes quiet.** Scheduled workflows are disabled after 60 days of
+repository inactivity (GitHub emails first; `workflow_dispatch` re-enables). The job now
+fails loudly rather than silently collecting nothing, so a red run means "arXiv refused",
+not "no new papers" — and `state.json` does not advance on a failed run, so the missed
+window is retried in full next time.
+
+**Rate limits.** arXiv allows one request per three seconds and answers an over-quota
+client with `429 Rate exceeded`. `qpdewatch harvest` treats that as a sustained block:
+it backs off, aborts, and leaves `state.json` untouched. Do not "fix" a 429 by retrying
+harder — every attempt counts against the same quota. If you are developing against the
+harvester, work from the committed corpus with `qpdewatch build` instead, which needs no
+network at all.
+
+**Reproducing the corpus from scratch** costs one `qpdewatch harvest --full` plus
+`qpdewatch discover`, roughly 10 minutes of mostly waiting. Nothing in the pipeline needs
+an API key, and no language model is involved at any stage.
+
 ## Provenance
 
 The seed corpus was assembled from 31 arXiv queries, screened to the records matching both

@@ -17,7 +17,9 @@ on:
         default: false
 
 permissions:
-  contents: write
+  contents: write   # commit the updated corpus
+  pages: write      # publish the rebuilt site
+  id-token: write   # required by actions/deploy-pages
 
 concurrency:
   group: weekly-update
@@ -43,24 +45,47 @@ jobs:
         run: |
           python -m qpdewatch update ${{ inputs.full && '--full' || '' }}
 
+      - name: Corpus integrity
+        run: python -m qpdewatch check
+
       - name: Summarise
         run: python -m qpdewatch stats >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail if the harvest was incomplete
+        # Without this the job stays green while quietly collecting nothing —
+        # the worst failure mode for an unattended weekly task, because you only
+        # notice months later when the corpus has a hole in it. state.json does
+        # not advance on a failed run, so the window is retried; this step only
+        # makes sure you are told.
+        run: |
+          FAILED=$(python -c "import json;print(len(json.load(open('data/state.json')).get('last_failed_queries',[])))")
+          if [ "$FAILED" -gt 0 ]; then
+            echo "::error::$FAILED arXiv queries failed — corpus not updated from arXiv this run."
+            exit 1
+          fi
 
       - name: Commit if the corpus changed
         run: |
           git config user.name  "quantum-pde-watch bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data docs
-          # Every build rewrites docs/index.html (it stamps today's date) and the
-          # CSVs, so "anything changed" is always true and would add ~2.4 MB to
-          # history every week forever. The corpus itself is the real signal:
-          # if no paper arrived and no citation count moved, throw the rebuild away.
+          git add data
+          # Only data/corpus.jsonl and data/state.json are tracked; the CSVs,
+          # figures and the site are gitignored derived outputs, rebuilt here and
+          # published below rather than committed. Committing them would add
+          # megabytes to history every week for no recoverable information.
           if git diff --cached --quiet -- data/corpus.jsonl; then
-            echo "no new papers and no citation changes; discarding regenerated outputs"
+            echo "no new papers and no citation changes"
             git reset -q
-            git checkout -- data docs
           else
             NEW=$(git diff --cached --numstat -- data/corpus.jsonl | awk '{print $1}')
             git commit -m "weekly update $(date -u +%Y-%m-%d): ${NEW:-0} corpus line(s) added"
             git push
           fi
+
+      # Publish the freshly built site. Settings -> Pages -> Source must be set
+      # to "GitHub Actions" for this to take effect.
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+      - uses: actions/deploy-pages@v4

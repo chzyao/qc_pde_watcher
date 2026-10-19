@@ -179,10 +179,6 @@ def merge_crossref(corpus: dict[str, dict], found: list[dict], vocab=None,
     today = date.today().isoformat()
     for rec in found:
         stats["seen"] += 1
-        if vocab is not None and not vocab.quantum_terms.search(
-                f"{rec['title']} {rec['abstract']}"):
-            stats["off_topic"] += 1
-            continue
         norm = normalise(rec["title"])
         hit, how = None, None
         if rec["doi"] in by_doi:
@@ -207,6 +203,13 @@ def merge_crossref(corpus: dict[str, dict], found: list[dict], vocab=None,
             if not (existing.get("abstract") or "").strip() and rec["abstract"]:
                 existing["abstract"] = rec["abstract"]
                 existing["abstract_source"] = "crossref"
+            continue
+        # The gate applies only to genuinely new records. A Crossref hit that
+        # matches a paper already on file enriches it above regardless of how
+        # terse its own title is — the existing record already earned its place.
+        if vocab is not None and not vocab.quantum_terms.search(
+                f"{rec['title']} {rec['abstract']}"):
+            stats["off_topic"] += 1
             continue
         rec["first_seen"] = today
         corpus[rec["uid"]] = rec

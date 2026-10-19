@@ -1,3 +1,17 @@
+# Derived build outputs. `qpdewatch build` regenerates all of these offline in
+# seconds from data/corpus.jsonl, so committing them would add megabytes to the
+# history every week for no recoverable information. The corpus, the config and
+# the code are the source of truth; everything here is a function of them.
+# The site is published by .github/workflows/weekly.yml via the Pages artifact,
+# not from a committed copy.
+data/corpus.csv
+data/coverage_matrix_counts.csv
+data/coverage_matrix_fraction.csv
+data/gap_scorecard.csv
+docs/index.html
+docs/coverage_matrix.png
+docs/gap_trajectory.png
+
 __pycache__/
 *.py[cod]
 .venv/

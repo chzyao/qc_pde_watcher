@@ -12,7 +12,7 @@ from __future__ import annotations
 import argparse
 from datetime import date, datetime, timedelta
 
-from . import (coverage, discover as discover_mod, enrich as enrich_mod,
+from . import (check as check_mod, coverage, discover as discover_mod, enrich as enrich_mod,
                harvest as harvest_mod, site, store, tag)
 from .config import DATA_DIR, DOCS_DIR, load_queries, load_vocabularies
 
@@ -88,6 +88,23 @@ def do_build(args, corpus: dict | None = None) -> None:
             print("  figures skipped (matplotlib not installed)")
 
 
+def do_check(_args) -> None:
+    corpus = store.load_corpus()
+    for k, v in check_mod.summarise(corpus).items():
+        print(f"  {k:18s} {v}")
+    errors, warnings = check_mod.problems(corpus)
+    for label, lines in (("warning", warnings), ("ERROR", errors)):
+        if lines:
+            print(f"\n{len(lines)} {label}(s):")
+            for line in lines[:25]:
+                print(f"  {label[0]}! {line}")
+            if len(lines) > 25:
+                print(f"  ... and {len(lines) - 25} more")
+    if errors:
+        raise SystemExit(1)
+    print("\ncorpus OK" + (" (with warnings)" if warnings else ""))
+
+
 def do_stats(_args) -> None:
     corpus = store.load_corpus()
     vocab = load_vocabularies()
@@ -138,6 +155,7 @@ def main(argv: list[str] | None = None) -> None:
     add_build_args(p)
     p = sub.add_parser("update", help="harvest + discover + enrich + build")
     add_harvest_args(p); add_discover_args(p); add_enrich_args(p); add_build_args(p)
+    sub.add_parser("check", help="validate corpus integrity (exits 1 on problems)")
     sub.add_parser("stats", help="summarise what is on file")
 
     args = ap.parse_args(argv)
@@ -157,6 +175,8 @@ def main(argv: list[str] | None = None) -> None:
         corpus = do_discover(args, corpus)
         corpus = do_enrich(args, corpus)
         do_build(args, corpus)
+    elif args.cmd == "check":
+        do_check(args)
     elif args.cmd == "stats":
         do_stats(args)
 

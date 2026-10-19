@@ -16,7 +16,11 @@
 # v0.3 = adds [document_types] (review/survey detection) and [problem_settings]
 #        (inverse vs forward); splits quantum machine learning out of the
 #        variational family into its own algorithm family.
-schema_version = "0.3"
+# v0.4 = closes a recall hole in the screen: QML, quantum lattice Boltzmann,
+#        Lindbladian, reservoir-computing and quantum-walk papers were only
+#        kept when they happened to also say "quantum algorithm" somewhere.
+#        Found by tests/test_discover_site.py, not by reading the output.
+schema_version = "0.4"
 
 # ---------------------------------------------------------------------------
 # Relevance screen. A record is kept if it matches quantum_terms AND pde_terms
@@ -24,7 +28,10 @@ schema_version = "0.3"
 # screen that produced the published 700-paper corpus.
 # ---------------------------------------------------------------------------
 [screen]
-quantum_terms = '(quantum (algorithm|comput|circuit|register|processor|hardware|subroutine|solver|advantage|speedup|simulat|annea|linear|state prep|amplitude)|qubit|HHL|QLSA|QSVT|quantum signal processing|block[- ]encod|variational quantum|VQE|VQA|QAOA|NISQ|fault[- ]tolerant|Carleman|Schr(o|\u00f6)dinger(isation|ization)|LCHS|linear combination of (unitaries|Hamiltonian)|tensor network|matrix product state|quantum[- ]inspired|annealer|amplitude (estimation|amplification)|Grover|phase estimation)'
+# Every method the [algorithm_families] vocabulary can tag must also be
+# recognised here, or papers using only that method's name are screened out
+# before they can ever be tagged. Adding a family means adding its name below.
+quantum_terms = '(quantum (algorithm|comput|circuit|register|processor|hardware|subroutine|solver|advantage|speedup|simulat|annea|linear|state prep|amplitude)|qubit|HHL|QLSA|QSVT|quantum signal processing|block[- ]encod|variational quantum|VQE|VQA|QAOA|NISQ|fault[- ]tolerant|Carleman|Schr(o|\u00f6)dinger(isation|ization)|LCHS|linear combination of (unitaries|Hamiltonian)|tensor network|matrix product state|quantum[- ]inspired|annealer|amplitude (estimation|amplification)|Grover|phase estimation|quantum machine learning|\bQML\b|quantum (neural|kernel|reservoir|walk|generative|transformer)|\bQPINN\b|quantum lattice (Boltzmann|gas|kinetic)|\bQLBM\b|Lindblad|\bGKSL\b|Koopman.?von Neumann|\bKvN\b|density matrix encoding|open quantum system)'
 pde_terms = '(partial differential|differential equation|\bPDE\b|\bODE\b|Navier.?Stokes|Euler equation|Burgers|advection|diffusion equation|convection|Poisson equation|Laplace equation|heat equation|wave equation|Boltzmann|fluid|flow field|turbulen|\bCFD\b|linear system|finite (difference|element|volume)|Maxwell|magnetohydrodynam|hydrodynam|reaction.?diffusion|Fokker.?Planck|Black.?Scholes|elasticity|aerodynam|porous media|shallow water|Vlasov|kinetic equation|transport equation|numerical (solver|simulation|scheme)|discretis|discretiz)'
 hard_exclude = '(No Drama|AInsteinBench|Gate Architecture via Teleportation|full adder in Ising|molecular response properties|eigensolver using variational adiabatic|chemistry in Hamiltonian-wavefunction|Multiscale Modeling: A Hierarchy|Highly Excited Eigenstates|Corrosion Modeling)'
 
