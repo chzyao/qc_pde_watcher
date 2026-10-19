@@ -1,0 +1,36 @@
+# Crossref discovery queries — plain text, NOT arXiv `abs:"..."` syntax.
+#
+# Crossref's query.bibliographic is a fuzzy relevance search over the whole
+# record, so it returns a long noisy tail. That is fine: the same screen in
+# config/vocabularies.toml filters the results, and anything that passes the
+# quantum test but not the PDE test lands in the `adjacent` tier rather than
+# being discarded. Keep queries specific enough that the first ~100 hits are
+# mostly on topic.
+
+queries = [
+  "quantum algorithm partial differential equation",
+  "quantum algorithm differential equations solver",
+  "quantum computing computational fluid dynamics",
+  "quantum algorithm Navier-Stokes",
+  "quantum lattice Boltzmann method",
+  "Carleman linearization quantum",
+  "quantum linear system algorithm solver",
+  "quantum singular value transformation differential",
+  "linear combination of Hamiltonian simulation",
+  "Schrodingerisation quantum simulation PDE",
+  "variational quantum algorithm differential equation",
+  "quantum algorithm Poisson equation",
+  "quantum algorithm advection diffusion",
+  "quantum algorithm Burgers equation turbulence",
+  "quantum computing turbulence simulation",
+  "quantum-inspired tensor network fluid dynamics",
+  "quantum physics-informed neural network PDE",
+  "quantum machine learning fluid dynamics",
+  "quantum algorithm Maxwell electromagnetic simulation",
+  "quantum algorithm magnetohydrodynamics plasma",
+  "quantum algorithm finite element method",
+  "quantum algorithm wave equation",
+  "quantum algorithm Vlasov kinetic equation",
+  "Lindblad open system linear differential equations quantum algorithm",
+  "block encoding finite difference operator",
+]

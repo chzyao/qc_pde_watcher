@@ -1,14 +1,14 @@
-algorithm_family,n_papers,Nonlinearity handling,2D / 3D spatial problems,Long-time / time-dependent integration,Boundary conditions,Explicit resource estimate (qubits/T-gates),Classical baseline comparison,Hardware execution (real QPU),Readout / observable extraction,Error / convergence analysis,State preparation / data loading,Noise / error mitigation on NISQ,Condition number / preconditioning,Multiphysics / coupling to classical solver,Complex geometry / unstructured mesh
-Quantum lattice Boltzmann / lattice gas,66,25,19,17,8,9,5,7,9,1,7,1,1,1,1
-Carleman / Koopman linear embedding,46,31,10,7,8,7,2,4,2,6,4,1,1,1,1
-Variational / VQA,42,21,6,7,5,7,4,8,6,2,3,11,3,2,0
-QSVT / QSP / block-encoding,29,14,7,7,5,6,3,1,3,2,4,1,1,1,1
-Quantum machine learning / surrogates,25,12,4,3,1,1,6,1,1,1,1,2,2,2,1
-Tensor networks / quantum-inspired,21,3,9,2,1,1,6,3,3,3,0,1,0,1,2
-LCU / LCHS,15,6,3,2,5,1,1,1,0,2,1,0,0,0,1
-QLSA (HHL-lineage linear solvers),14,8,2,1,3,2,2,3,1,4,2,2,2,1,0
-Schrodingerisation / unitary dilation,9,4,1,1,1,0,1,1,0,1,0,0,0,0,0
+algorithm_family,n_papers,Nonlinearity handling,2D / 3D spatial problems,Long-time / time-dependent integration,Boundary conditions,Explicit resource estimate (qubits/T-gates),Classical baseline comparison,Hardware execution (real QPU),Error / convergence analysis,Readout / observable extraction,State preparation / data loading,Noise / error mitigation on NISQ,Condition number / preconditioning,Multiphysics / coupling to classical solver,Complex geometry / unstructured mesh
+Quantum lattice Boltzmann / lattice gas,70,26,19,17,10,9,6,7,1,9,7,1,1,1,1
+Carleman / Koopman linear embedding,48,32,10,7,8,7,2,4,7,2,4,1,1,1,1
+Variational / VQA,45,22,7,7,5,7,5,9,3,6,3,11,3,2,0
+QSVT / QSP / block-encoding,30,15,7,8,5,6,3,1,2,3,4,1,1,1,1
+Quantum machine learning / surrogates,27,13,5,3,1,1,6,1,2,1,1,2,2,2,1
+Tensor networks / quantum-inspired,24,3,9,2,2,1,6,3,5,3,0,1,0,1,3
+LCU / LCHS,17,7,3,3,6,1,1,1,2,0,1,0,0,0,1
+QLSA (HHL-lineage linear solvers),14,8,2,1,3,2,2,3,4,1,2,2,2,1,0
+Schrodingerisation / unitary dilation,9,4,1,1,1,0,1,1,1,0,0,0,0,0,0
 Nonlinear via measurement / homotopy / perturbation,8,6,1,2,1,1,0,1,1,1,0,0,0,0,0
-Lindbladian / open-system embedding,6,2,0,0,1,0,0,0,0,2,1,1,0,0,0
-Time-marching / Taylor / Dyson ODE solvers,6,2,2,5,1,1,0,0,1,1,0,0,0,0,0
-Amplitude estimation / Grover readout,6,1,2,0,0,0,2,1,3,0,1,0,0,1,0
+Amplitude estimation / Grover readout,8,2,2,0,0,0,2,2,0,3,1,0,0,1,0
+Time-marching / Taylor / Dyson ODE solvers,7,2,2,5,2,1,0,0,1,1,0,0,0,0,0
+Lindbladian / open-system embedding,6,2,0,0,1,0,0,0,2,0,1,1,0,0,0

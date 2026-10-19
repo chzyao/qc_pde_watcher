@@ -17,8 +17,20 @@ def _split(cell: str) -> list[str]:
     return [p for p in (x.strip() for x in cell.split(";")) if p]
 
 
+def statistical_rows(rows: list[dict]) -> list[dict]:
+    """The subset every coverage number is computed over.
+
+    Adjacent-tier papers are not about PDEs, and abstract-less records can only
+    be tagged from a title — counting either as "a paper that does not address
+    axis X" would depress every percentage for a bibliographic reason rather
+    than a scientific one.
+    """
+    return [r for r in rows if r.get("tier", "core") == "core" and r.get("has_abstract", True)]
+
+
 def coverage_matrix(rows: list[dict], vocab: Vocabularies, cfd_only: bool = True):
     """Return (families, axes, counts, fractions, family_sizes)."""
+    rows = statistical_rows(rows)
     subset = [r for r in rows if r["cfd_facing"]] if cfd_only else rows
     axes = list(vocab.capability_axes)
     sizes = {f: sum(1 for r in subset if f in _split(r["algorithm_families"]))
@@ -41,7 +53,7 @@ def coverage_matrix(rows: list[dict], vocab: Vocabularies, cfd_only: bool = True
 
 def scorecard(rows: list[dict], vocab: Vocabularies, split_year: int = 2024) -> list[dict]:
     """Per-axis coverage before and from `split_year`, over CFD-facing papers."""
-    cfd = [r for r in rows if r["cfd_facing"] and r["year"]]
+    cfd = [r for r in statistical_rows(rows) if r["cfd_facing"] and r["year"]]
     early = [r for r in cfd if r["year"] < split_year]
     recent = [r for r in cfd if r["year"] >= split_year]
     out = []

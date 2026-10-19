@@ -22,13 +22,26 @@ def searchable(rec: dict) -> str:
     return f"{rec.get('title', '')} {rec.get('abstract', '')}"
 
 
-def passes_screen(rec: dict, vocab: Vocabularies) -> bool:
+def tier_of(rec: dict, vocab: Vocabularies) -> str | None:
+    """'core', 'adjacent', or None (drop).
+
+    core      quantum method AND a differential-equation target — the corpus
+              proper, and the only tier the gap-map statistics are computed over.
+    adjacent  quantum method but no PDE term: QML-for-chemistry, quantum
+              simulation, general quantum-computing surveys. Kept so the
+              neighbourhood is browsable, excluded from every statistic.
+    """
     text = searchable(rec)
-    return bool(
-        vocab.quantum_terms.search(text)
-        and vocab.pde_terms.search(text)
-        and not vocab.hard_exclude.search(rec.get("title", ""))
-    )
+    if vocab.hard_exclude.search(rec.get("title", "")):
+        return None
+    if not vocab.quantum_terms.search(text):
+        return None
+    return "core" if vocab.pde_terms.search(text) else "adjacent"
+
+
+def passes_screen(rec: dict, vocab: Vocabularies) -> bool:
+    """Back-compat helper: true for the core tier only."""
+    return tier_of(rec, vocab) == "core"
 
 
 def tag_record(rec: dict, vocab: Vocabularies) -> dict:
@@ -50,13 +63,24 @@ def build_rows(corpus: dict[str, dict], vocab: Vocabularies) -> list[dict]:
     """Screen, tag and flatten the corpus into export-ready rows (newest first)."""
     rows = []
     for rec in corpus.values():
-        if not passes_screen(rec, vocab):
+        tier = tier_of(rec, vocab)
+        if tier is None:
             continue
         cr = rec.get("crossref") or {}
         tags = tag_record(rec, vocab)
         authors = rec.get("authors") or []
+        abstract = rec.get("abstract", "") or ""
+        arxiv_id = rec.get("arxiv_id") or ""
+        doi = cr.get("doi") or rec.get("doi") or ""
         rows.append({
-            "arxiv_id": rec["arxiv_id"],
+            "uid": rec.get("uid") or arxiv_id or ("doi:" + doi.lower()),
+            "tier": tier,
+            "source": rec.get("source", "arxiv"),
+            # An abstract-less record can only be tagged from its title, so it is
+            # held out of every coverage statistic rather than counted as a paper
+            # that fails to address an axis.
+            "has_abstract": bool(abstract.strip()),
+            "arxiv_id": arxiv_id,
             "published": rec.get("published", ""),
             "year": int(rec["published"][:4]) if rec.get("published") else None,
             "updated": rec.get("updated", ""),
@@ -76,11 +100,12 @@ def build_rows(corpus: dict[str, dict], vocab: Vocabularies) -> list[dict]:
             "problem_settings": "; ".join(tags["problem_settings"]),
             "citations_crossref": cr.get("cites"),
             "venue": cr.get("venue"),
-            "doi": cr.get("doi") or rec.get("doi"),
-            "url": f"https://arxiv.org/abs/{rec['arxiv_id']}",
-            "abstract": rec.get("abstract", ""),
+            "doi": doi or None,
+            "url": (f"https://arxiv.org/abs/{arxiv_id}" if arxiv_id
+                    else f"https://doi.org/{doi}" if doi else ""),
+            "abstract": abstract,
         })
-    rows.sort(key=lambda r: (r["published"], r["arxiv_id"]), reverse=True)
+    rows.sort(key=lambda r: (r["published"], r["uid"]), reverse=True)
     return rows
 
 

@@ -16,6 +16,17 @@ CORPUS_PATH = DATA_DIR / "corpus.jsonl"
 STATE_PATH = DATA_DIR / "state.json"
 
 
+def uid_of(rec: dict) -> str:
+    """Canonical key. arXiv records keep their bare ID, so IDs already written
+    into data/favourites.txt and shared URLs keep working; records that exist
+    only as a DOI are keyed `doi:<doi>`."""
+    if rec.get("uid"):
+        return rec["uid"]
+    if rec.get("arxiv_id"):
+        return rec["arxiv_id"]
+    return "doi:" + (rec.get("doi") or "").lower()
+
+
 def load_corpus(path: Path | None = None) -> dict[str, dict]:
     path = path or CORPUS_PATH
     if not path.exists():
@@ -26,7 +37,9 @@ def load_corpus(path: Path | None = None) -> dict[str, dict]:
             line = line.strip()
             if line:
                 rec = json.loads(line)
-                out[rec["arxiv_id"]] = rec
+                rec.setdefault("uid", uid_of(rec))      # migrate pre-uid records
+                rec.setdefault("source", "arxiv")
+                out[rec["uid"]] = rec
     return out
 
 
@@ -35,7 +48,7 @@ def save_corpus(corpus: dict[str, dict], path: Path | None = None) -> None:
     path = path or CORPUS_PATH
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(path.suffix + ".tmp")
-    rows = sorted(corpus.values(), key=lambda r: (r.get("published", ""), r["arxiv_id"]))
+    rows = sorted(corpus.values(), key=lambda r: (r.get("published", ""), uid_of(r)))
     with tmp.open("w", encoding="utf-8") as fh:
         for rec in rows:
             fh.write(json.dumps(rec, ensure_ascii=False, sort_keys=True) + "\n")
@@ -64,7 +77,10 @@ def merge(corpus: dict[str, dict], harvested: dict[str, dict],
     """
     today = today or date.today().isoformat()
     n_new = n_upd = 0
-    for aid, rec in harvested.items():
+    for rec in harvested.values():
+        rec.setdefault("uid", uid_of(rec))
+        rec.setdefault("source", "arxiv")
+        aid = rec["uid"]
         if aid not in corpus:
             rec["first_seen"] = today
             corpus[aid] = rec

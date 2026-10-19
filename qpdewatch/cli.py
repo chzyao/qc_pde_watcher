@@ -12,7 +12,8 @@ from __future__ import annotations
 import argparse
 from datetime import date, datetime, timedelta
 
-from . import coverage, enrich as enrich_mod, harvest as harvest_mod, site, store, tag
+from . import (coverage, discover as discover_mod, enrich as enrich_mod,
+               harvest as harvest_mod, site, store, tag)
 from .config import DATA_DIR, DOCS_DIR, load_queries, load_vocabularies
 
 OVERLAP_DAYS = 10  # re-check a window before the last run, so nothing slips through
@@ -52,6 +53,16 @@ def do_enrich(args, corpus: dict | None = None) -> dict:
     return corpus
 
 
+def do_discover(args, corpus: dict | None = None) -> dict:
+    corpus = corpus if corpus is not None else store.load_corpus()
+    vocab = load_vocabularies()
+    discover_mod.discover(corpus, vocab, rows=args.rows, from_date=args.from_date)
+    if not args.no_backfill:
+        discover_mod.backfill_abstracts(corpus, vocab, max_lookups=args.max_lookups)
+    store.save_corpus(corpus)
+    return corpus
+
+
 def do_build(args, corpus: dict | None = None) -> None:
     corpus = corpus if corpus is not None else store.load_corpus()
     vocab = load_vocabularies()
@@ -61,8 +72,13 @@ def do_build(args, corpus: dict | None = None) -> None:
     csv_path = tag.write_csv(rows)
     tables = coverage.write_tables(rows, vocab)
     html = site.build(rows, vocab)
-    n_cfd = sum(1 for r in rows if r["cfd_facing"])
-    print(f"  {len(rows)} screened rows ({n_cfd} CFD-facing) -> {csv_path.name}, "
+    core = coverage.statistical_rows(rows)
+    n_adj = sum(1 for r in rows if r["tier"] == "adjacent")
+    n_noab = sum(1 for r in rows if r["tier"] == "core" and not r["has_abstract"])
+    n_cfd = sum(1 for r in core if r["cfd_facing"])
+    print(f"  {len(rows)} rows: {len(core)} core with abstracts ({n_cfd} CFD-facing), "
+          f"{n_noab} core without abstracts, {n_adj} adjacent")
+    print(f"  -> {csv_path.name}, "
           f"{', '.join(p.name for p in tables)}, {html.relative_to(html.parent.parent)}")
     if not args.no_figures:
         try:
@@ -107,12 +123,21 @@ def main(argv: list[str] | None = None) -> None:
     def add_build_args(p):
         p.add_argument("--no-figures", action="store_true")
 
+    def add_discover_args(p):
+        p.add_argument("--rows", type=int, default=100, help="Crossref hits per query")
+        p.add_argument("--from-date", default="2015-01-01")
+        p.add_argument("--max-lookups", type=int, default=150,
+                       help="arXiv abstract backfills per run (3 s each)")
+        p.add_argument("--no-backfill", action="store_true")
+
     p = sub.add_parser("harvest", help="fetch new arXiv records"); add_harvest_args(p)
+    p = sub.add_parser("discover", help="find journal-only papers via Crossref")
+    add_discover_args(p)
     p = sub.add_parser("enrich", help="fill in Crossref citation counts"); add_enrich_args(p)
     p = sub.add_parser("build", help="re-tag and regenerate outputs (no network)")
     add_build_args(p)
-    p = sub.add_parser("update", help="harvest + enrich + build")
-    add_harvest_args(p); add_enrich_args(p); add_build_args(p)
+    p = sub.add_parser("update", help="harvest + discover + enrich + build")
+    add_harvest_args(p); add_discover_args(p); add_enrich_args(p); add_build_args(p)
     sub.add_parser("stats", help="summarise what is on file")
 
     args = ap.parse_args(argv)
@@ -121,12 +146,15 @@ def main(argv: list[str] | None = None) -> None:
 
     if args.cmd == "harvest":
         do_harvest(args)
+    elif args.cmd == "discover":
+        do_discover(args)
     elif args.cmd == "enrich":
         do_enrich(args)
     elif args.cmd == "build":
         do_build(args)
     elif args.cmd == "update":
         corpus = do_harvest(args)
+        corpus = do_discover(args, corpus)
         corpus = do_enrich(args, corpus)
         do_build(args, corpus)
     elif args.cmd == "stats":

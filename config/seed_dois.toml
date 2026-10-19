@@ -1,0 +1,14 @@
+# Papers to include by hand, whatever the keyword queries return.
+#
+# The query set cannot be exhaustive: a paper whose subject sits far from every
+# query string will never reach any top-100, however much you want it indexed.
+# Paste a DOI here and `qpdewatch discover` fetches it from Crossref.
+#
+# Seeds bypass the ingest screen because you asked for them deliberately. They
+# are still tiered at build time, so a seed with no PDE content appears in the
+# `adjacent` tier rather than inflating the core statistics.
+
+dois = [
+  # QML review — adjacent tier: no PDE content, but worth having indexed.
+  "10.20935/AcadQuant8243",
+]

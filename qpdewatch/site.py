@@ -34,7 +34,11 @@ def _pack(rows: list[dict], vocab: Vocabularies, starred: dict[str, str]) -> dic
     packed = []
     for r in rows:
         packed.append({
-            "i": r["arxiv_id"], "d": r["published"], "t": r["title"],
+            "i": r["uid"], "d": r["published"], "t": r["title"],
+            "lbl": r["arxiv_id"] or (r["doi"] or ""),
+            "u": r["url"],
+            "tr": 1 if r["tier"] == "adjacent" else 0,
+            "ha": 1 if r["has_abstract"] else 0,
             "au": r["authors"], "na": r["n_authors"],
             "c": r["citations_crossref"], "v": r["venue"] or "",
             "f": to_idx("fam", r["algorithm_families"]),
@@ -62,7 +66,9 @@ def build(rows: list[dict], vocab: Vocabularies, outdir: Path | None = None,
     payload["meta"] = {
         "generated": date.today().isoformat(),
         "n_total": len(rows),
-        "n_cfd": sum(1 for r in rows if r["cfd_facing"]),
+        "n_core": sum(1 for r in rows if r["tier"] == "core"),
+        "n_adjacent": sum(1 for r in rows if r["tier"] == "adjacent"),
+        "n_cfd": sum(1 for r in rows if r["cfd_facing"] and r["tier"] == "core"),
         "n_cited": sum(1 for r in rows if r["citations_crossref"] is not None),
         "n_review": sum(1 for r in rows if r["is_review"]),
         "schema_version": vocab.schema_version,
@@ -142,6 +148,8 @@ TEMPLATE = r"""<!DOCTYPE html>
   .chip.cap { background:#fdeef8; color:#8d1178; }
   .chip.rev { background:#1a1a1a; color:#fff; }
   .chip.inv { background:#e8f1ff; color:#14478f; }
+  .chip.adj { background:#fff4e0; color:#8a5a00; }
+  .chip.noab { background:#f0f0f0; color:#888; }
   .badge { font-size:10px; background:var(--accent); color:#fff; border-radius:3px;
       padding:1px 5px; margin-left:6px; vertical-align:1px; }
   tr.abs td { background:#fbfbfc; color:#333; font-size:13px; padding-top:0; }
@@ -167,6 +175,7 @@ TEMPLATE = r"""<!DOCTYPE html>
   <details class="facet" id="f-cap"><summary>Capability axis</summary><div class="panel"></div></details>
   <details class="facet" id="f-doc"><summary>Document type</summary><div class="panel"></div></details>
   <details class="facet" id="f-pcl"><summary>Problem</summary><div class="panel"></div></details>
+  <label class="toggle" title="Papers with a quantum method but no PDE target — browsable, and excluded from every coverage statistic"><input type="checkbox" id="adj"> Adjacent</label>
   <label class="toggle"><input type="checkbox" id="cfd"> CFD</label>
   <label class="toggle"><input type="checkbox" id="rev"> Reviews</label>
   <label class="toggle"><input type="checkbox" id="fav"> &#9733; Starred</label>
@@ -219,7 +228,8 @@ function saveFav() {
 }
 
 document.getElementById('meta').textContent =
-  `${META.n_total} papers · ${META.n_cfd} CFD-facing · ${META.n_review} reviews · `
+  `${META.n_core} core papers · ${META.n_cfd} CFD-facing · ${META.n_adjacent} adjacent `
+  + `(hidden by default) · ${META.n_review} reviews · `
   + `${META.n_cited} with Crossref counts · vocabulary v${META.schema_version} · `
   + `updated ${META.generated}`;
 
@@ -361,6 +371,7 @@ function current() {
   const terms = document.getElementById('q').value.toLowerCase().split(/\s+/).filter(Boolean);
   const y0 = parseInt(document.getElementById('y0').value, 10);
   const y1 = parseInt(document.getElementById('y1').value, 10);
+  const withAdj = document.getElementById('adj').checked;
   const cfdOnly = document.getElementById('cfd').checked;
   const revOnly = document.getElementById('rev').checked;
   const favOnly = document.getElementById('fav').checked;
@@ -370,6 +381,7 @@ function current() {
   const match = (have, key) => !sel[key].size ||
         (MODE[key] === 'and' ? all(have, sel[key]) : any(have, sel[key]));
   return ROWS.filter(r => {
+    if (!withAdj && r.tr) return false;
     if (cfdOnly && !r.q) return false;
     if (revOnly && !r.rv) return false;
     if (favOnly && !(r.i in FAV)) return false;
@@ -413,6 +425,8 @@ function render() {
     const tr = document.createElement('tr');
     const chips = [
       r.rv ? '<span class="chip rev">review</span>' : '',
+      r.tr ? '<span class="chip adj">adjacent</span>' : '',
+      r.ha ? '' : '<span class="chip noab">no abstract</span>',
       r.pc !== 'Forward (assumed)' ? `<span class="chip inv">${esc(r.pc)}</span>` : '',
       ...r.f.map(i => `<span class="chip">${esc(NAMES.f[i])}</span>`),
       ...r.x.map(i => `<span class="chip cap">${esc(NAMES.x[i])}</span>`)
@@ -422,7 +436,7 @@ function render() {
       `<td class="date">${r.d}</td>` +
       `<td class="title"><b>${tex(r.t)}</b>` +
         (r.s >= newCutoff ? '<span class="badge">new</span>' : '') +
-        ` <a href="https://arxiv.org/abs/${r.i}" target="_blank" rel="noopener">${r.i}</a>` +
+        ` <a href="${r.u}" target="_blank" rel="noopener">${esc(r.lbl)}</a>` +
         `<div class="chips">${chips}</div></td>` +
       `<td>${shortAuthors(r)}</td>` +
       `<td class="cite">${r.c === null ? '\u2014' : r.c}</td>`;
@@ -457,11 +471,11 @@ document.querySelectorAll('th[data-k]').forEach(th => th.addEventListener('click
   th.querySelector('.arrow').textContent = sortDir === 1 ? '\u25b2' : '\u25bc';
   render();
 }));
-['q','y0','y1','cfd','rev','fav','new'].forEach(id =>
+['q','y0','y1','adj','cfd','rev','fav','new'].forEach(id =>
   document.getElementById(id).addEventListener('input', render));
 document.getElementById('reset').addEventListener('click', () => {
   ['q','y0','y1'].forEach(id => document.getElementById(id).value = '');
-  ['cfd','rev','fav','new'].forEach(id => document.getElementById(id).checked = false);
+  ['adj','cfd','rev','fav','new'].forEach(id => document.getElementById(id).checked = false);
   Object.values(sel).forEach(s => s.clear());
   document.querySelectorAll('.panel input').forEach(i => i.checked = false);
   Object.keys(BASE).forEach(k => syncSummary({f:'f-fam',p:'f-pde',x:'f-cap',
@@ -489,18 +503,19 @@ document.getElementById('export').addEventListener('click', () => {
   download('favourites.txt', lines.join('\n') + '\n', 'text/plain');
 });
 document.getElementById('csv').addEventListener('click', () => {
-  const cols = ['arxiv_id','published','title','authors','citations_crossref','venue',
-                'cfd_facing','is_review','problem_class','algorithm_families',
-                'pde_targets','capability_axes','starred','url'];
+  const cols = ['uid','published','title','authors','citations_crossref','venue',
+                'tier','has_abstract','cfd_facing','is_review','problem_class',
+                'algorithm_families','pde_targets','capability_axes','starred','url'];
   const q = v => '"' + String(v === null || v === undefined ? '' : v).replace(/"/g, '""') + '"';
   const lines = [cols.join(',')];
   for (const r of current()) {
-    lines.push([r.i, r.d, r.t, r.au, r.c === null ? '' : r.c, r.v, r.q, r.rv, r.pc,
+    lines.push([r.i, r.d, r.t, r.au, r.c === null ? '' : r.c, r.v,
+                r.tr ? 'adjacent' : 'core', r.ha, r.q, r.rv, r.pc,
                 r.f.map(i => NAMES.f[i]).join('; '),
                 r.p.map(i => NAMES.p[i]).join('; '),
                 r.x.map(i => NAMES.x[i]).join('; '),
                 (r.i in FAV) ? 1 : 0,
-                'https://arxiv.org/abs/' + r.i].map(q).join(','));
+                r.u].map(q).join(','));
   }
   download('quantum_pde_filtered.csv', lines.join('\n'), 'text/csv');
 });

@@ -20,7 +20,7 @@ pip install -e ".[figures]"                          # or: pip install -r requir
 
 qpdewatch stats                 # what is on file  (same as: python -m qpdewatch stats)
 python -m qpdewatch build       # re-tag and regenerate every output, no network
-python -m qpdewatch update      # the weekly job: harvest, enrich, build
+qpdewatch update                # the weekly job: harvest, discover, enrich, build
 ```
 
 `build` is offline and idempotent — run it freely after editing a vocabulary.
@@ -47,6 +47,39 @@ commit then shows exactly which papers arrived, and `git log -p data/corpus.json
 readable history of the field.
 
 ---
+
+## Sources and tiers
+
+**Two sources.** arXiv is harvested from `config/queries.toml`; Crossref is searched from
+`config/queries_crossref.toml` to catch work that was never preprinted. Records are matched
+on DOI, then normalised title, then fuzzily above 0.93 similarity — a Crossref hit that
+matches an existing arXiv paper contributes its DOI, venue and citation count to that record
+instead of creating a second row. The arXiv record stays canonical: it has the full
+abstract, the author list and the version history.
+
+Crossref's `query.bibliographic` is a fuzzy relevance search that returns its full quota
+however thin the match, so Crossref records failing the *quantum* half of the screen are
+dropped at ingest rather than stored and re-screened forever. The arXiv harvest is kept
+whole, because those queries were targeted to begin with and the stored feed is the
+reproducible record of what they returned.
+
+`config/seed_dois.toml` is the escape hatch: paste a DOI and `discover` fetches it whatever
+the queries return. Seeds bypass the ingest screen because you asked for them on purpose.
+
+**Two tiers.**
+
+| Tier | Meaning | In the statistics? |
+|---|---|---|
+| `core` | A quantum method **and** a differential-equation target. | Yes |
+| `adjacent` | A quantum method but no PDE target — QML for chemistry, quantum simulation, general quantum-computing surveys. | **No** |
+
+The viewer hides the adjacent tier behind a toggle. Coverage percentages are computed over
+core papers **that have an abstract**, via `coverage.statistical_rows`. Both exclusions
+matter: tags are regex over title plus abstract, so counting an abstract-less record as "a
+paper that fails to address axis X" would push every percentage down for a bibliographic
+reason rather than a scientific one. Crossref supplies an abstract for only about a third of
+its records; `discover` backfills the rest from arXiv by title match, and whatever is still
+missing is flagged `has_abstract = false` and held out.
 
 ## How it works
 
