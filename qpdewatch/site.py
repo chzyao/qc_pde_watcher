@@ -222,13 +222,31 @@ const newCutoff = (() => {
   return d.toISOString().slice(0, 10);
 })();
 
-// ---- favourites: seeded from data/favourites.txt, then browser-local --------
+// ---- favourites: data/favourites.txt is authoritative, localStorage is the
+// working copy. Seeding only on first visit made the file write-only ever
+// after: editing or emptying it changed nothing for anyone who had already
+// loaded the page once. So the browser also remembers WHICH seed it adopted,
+// and when the committed file differs from that, the file wins and the working
+// copy is replaced. Editing data/favourites.txt and redeploying therefore does
+// what it looks like it does, at the cost that local stars you never exported
+// are dropped when the file next changes — which is the documented contract:
+// press "Export favourites" and commit to make a star permanent.
 const FAVKEY = 'qpdewatch:favourites';
+const SEEDKEY = 'qpdewatch:favourites-seed';
+const SEED_SIG = JSON.stringify(Object.keys(P.seed).sort());
 let FAV;
 try { FAV = JSON.parse(localStorage.getItem(FAVKEY)) || null; } catch (e) { FAV = null; }
-if (!FAV) { FAV = Object.assign({}, P.seed); saveFav(); }
+let seedChanged = false;
+try { seedChanged = localStorage.getItem(SEEDKEY) !== SEED_SIG; } catch (e) {}
+if (!FAV || seedChanged) {
+  FAV = Object.assign({}, P.seed);
+  saveFav();
+}
 function saveFav() {
-  try { localStorage.setItem(FAVKEY, JSON.stringify(FAV)); } catch (e) {}
+  try {
+    localStorage.setItem(FAVKEY, JSON.stringify(FAV));
+    localStorage.setItem(SEEDKEY, SEED_SIG);
+  } catch (e) {}
 }
 
 document.getElementById('meta').textContent =

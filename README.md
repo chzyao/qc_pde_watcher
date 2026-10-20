@@ -140,11 +140,20 @@ works from `file://` and from Pages alike.
   class. The three analytical facets use AND within the facet (find papers covering *both*
   readout and geometry); the two categorical ones use OR. Each panel says which.
 - **Quick toggles** for CFD-facing, reviews, starred and new-in-30-days.
-- **Starring.** Click the star in the first column. Stars live in browser localStorage,
-  seeded on first visit from `data/favourites.txt`. Press **Export favourites**, replace
+- **Starring.** Click the star in the first column. `data/favourites.txt` is authoritative
+  and localStorage is the working copy. Press **Export favourites**, replace
   `data/favourites.txt` with the download and commit — now the star is permanent, survives
   a cache clear, and is there on your other machines. The viewer is a static page, so this
   file-plus-localStorage split is what makes starring durable without a backend.
+
+  The browser also remembers *which* seed it adopted, so **when the committed file changes
+  the file wins** and the working copy is replaced. That is what makes editing or emptying
+  `data/favourites.txt` and redeploying actually take effect; without it the file was
+  write-only after a browser's first visit. The cost is the other half of the contract:
+  stars you added in the browser and never exported are dropped the next time the file
+  changes. To clear all stars, empty the file, commit, and redeploy — or, for an immediate
+  local effect without a deploy, run
+  `localStorage.removeItem('qpdewatch:favourites')` in the browser console.
 - **TeX rendering.** arXiv abstracts are plain text containing TeX, so `$3.7\times10^{-12}$`
   used to display raw. `qpdewatch/site.py` ships a small renderer covering the subset that
   actually occurs in this corpus: exponents and subscripts, fractions, roots, accents

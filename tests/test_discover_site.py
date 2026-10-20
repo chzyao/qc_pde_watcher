@@ -120,6 +120,34 @@ def test_site_builds_parseable_payload(tmp_path, vocab):
     assert all(row["u"] for row in payload["rows"]), "every row needs a resolvable link"
 
 
+def test_viewer_resyncs_stars_when_the_committed_file_changes(tmp_path, vocab):
+    """data/favourites.txt must stay authoritative after the first visit.
+
+    Seeding localStorage only when it was empty made the file write-only ever
+    after: emptying it changed nothing for a browser that had already loaded the
+    page. The page now records which seed it adopted and replaces its working
+    copy when the committed file differs, so editing the file actually works.
+    """
+    corpus = {"a": arxiv_rec("a", "Quantum algorithm for the heat equation")}
+    rows = build_rows(corpus, vocab)
+
+    out = site.build(rows, vocab, outdir=tmp_path, starred={"a": "keep"})
+    html = out.read_text(encoding="utf-8")
+    assert "qpdewatch:favourites-seed" in html, "no record of which seed was adopted"
+    assert "SEED_SIG" in html and "seedChanged" in html, "no resync guard"
+
+    payload = json.loads(
+        re.search(r'<script id="payload" type="application/json">(.*?)</script>', html, re.S)
+        .group(1).replace("<\\/", "</"))
+    assert payload["seed"] == {"a": "keep"}
+
+    cleared = site.build(rows, vocab, outdir=tmp_path, starred={})
+    payload2 = json.loads(
+        re.search(r'<script id="payload" type="application/json">(.*?)</script>',
+                  cleared.read_text(encoding="utf-8"), re.S).group(1).replace("<\\/", "</"))
+    assert payload2["seed"] == {}, "an emptied favourites file must publish an empty seed"
+
+
 def test_site_payload_cannot_break_out_of_the_script_tag(tmp_path, vocab):
     corpus = {"a": arxiv_rec("a", "Quantum PDE solver </script><script>alert(1)</script>",
                              "We solve the Navier-Stokes equations.")}
