@@ -10,6 +10,24 @@ vocabulary versions are not comparable.
 
 ## Unreleased
 
+### Fixed
+- **A throttled arXiv no longer destroys a whole run.** `harvest()` caught
+  `RateLimited` for its own loop, but `backfill_abstracts()` called
+  `fetch_page` directly with no handler, so a 429 aborted `qpdewatch update`
+  *after* the harvest and the Crossref pass had done their work and *before*
+  the build, the commit and the deploy. The backfill now stops cleanly and the
+  run continues. Records it never reached stay queued rather than being marked
+  tried-and-failed.
+- **The backfill was the thing exhausting the quota.** It can spend one arXiv
+  request per queued record on top of the harvest's ~31. It is now skipped
+  entirely when *this run's* harvest was refused — distinguished from a stale
+  failure by a new `last_attempt` field in `state.json`, which advances on every
+  run while `last_harvest` still advances only on a clean one — and the weekly
+  job caps it at `--max-lookups 40`.
+- `data/favourites.txt` is authoritative after the first visit (see README);
+  previously the viewer seeded localStorage only when empty, so editing or
+  emptying the file changed nothing for a browser that had already loaded once.
+
 ### Changed
 - **An abstract is now required for publication.** Screened-in records without
   one are withheld from `corpus.csv` and the viewer rather than shown as stubs

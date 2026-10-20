@@ -50,8 +50,12 @@ jobs:
         env:
           # Optional: set this repository variable to join Crossref's polite pool.
           CROSSREF_MAILTO: ${{ vars.CROSSREF_MAILTO }}
+        # --max-lookups is deliberately small. The harvest already spends ~31
+        # arXiv requests; the abstract backfill can spend one per queued record
+        # and is what tips the run over arXiv's quota. 40 a week drains the
+        # queue steadily without getting the runner blocked.
         run: |
-          python -m qpdewatch update ${{ inputs.full && '--full' || '' }}
+          python -m qpdewatch update --max-lookups 40 ${{ inputs.full && '--full' || '' }}
 
       - name: Corpus integrity
         run: python -m qpdewatch check

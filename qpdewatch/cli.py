@@ -39,6 +39,10 @@ def do_harvest(args) -> dict:
     # next time instead of silently leaving a hole in the record.
     if not failed:
         state["last_harvest"] = date.today().isoformat()
+    # last_attempt advances every run, pass or fail; last_harvest only on a
+    # clean one. The pair is what distinguishes "arXiv refused us just now"
+    # from "arXiv refused us last week and may well have recovered since".
+    state["last_attempt"] = date.today().isoformat()
     state["n_records"] = len(corpus)
     state["last_failed_queries"] = failed
     store.save_state(state)
@@ -57,7 +61,18 @@ def do_discover(args, corpus: dict | None = None) -> dict:
     corpus = corpus if corpus is not None else store.load_corpus()
     vocab = load_vocabularies()
     discover_mod.discover(corpus, vocab, rows=args.rows, from_date=args.from_date)
-    if not args.no_backfill:
+    # The backfill is the heaviest arXiv consumer in the pipeline — up to
+    # max_lookups requests on top of the harvest's ~31. If the harvest has just
+    # been refused, arXiv's quota is already gone and every backfill request
+    # would be a wasted attempt that deepens the block.
+    state = store.load_state()
+    throttled_now = (bool(state.get("last_failed_queries"))
+                     and state.get("last_attempt") == date.today().isoformat())
+    if args.no_backfill:
+        pass
+    elif throttled_now:
+        print("  abstract backfill skipped: arXiv refused this run's harvest")
+    else:
         discover_mod.backfill_abstracts(corpus, vocab, max_lookups=args.max_lookups)
     store.save_corpus(corpus)
     return corpus

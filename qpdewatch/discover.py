@@ -314,11 +314,23 @@ def backfill_abstracts(corpus: dict[str, dict], vocab, max_lookups: int = 150,
     todo.sort(key=lambda r: (tier_of(r, vocab) != "core", r.get("published", "")),
               reverse=False)
     todo.sort(key=lambda r: tier_of(r, vocab) != "core")
-    stats = {"tried": 0, "recovered": 0}
+    stats = {"tried": 0, "recovered": 0, "rate_limited": False}
     for rec in todo[:max_lookups]:
         title = rec["title"]
-        payload = arxiv.fetch_page(f'ti:"{title[:120]}"', page_size=5)
+        try:
+            payload = arxiv.fetch_page(f'ti:"{title[:120]}"', page_size=5)
+        except arxiv.RateLimited as exc:
+            # harvest() handles this for its own loop; this call site did not,
+            # so a throttled arXiv aborted the entire `update` — after the
+            # harvest and the Crossref pass had already done their work, and
+            # before the build, the commit and the deploy. Stop the backfill,
+            # keep everything gathered so far, and let the run continue.
+            log(f"  ! abstract backfill stopped: {exc}")
+            stats["rate_limited"] = True
+            break
         stats["tried"] += 1
+        # Set only after a real answer: a record we never actually reached must
+        # stay in the queue rather than being marked as tried-and-failed.
         rec["abstract_lookup"] = date.today().isoformat()
         if payload:
             for cand in arxiv.parse_feed(payload):
@@ -331,9 +343,10 @@ def backfill_abstracts(corpus: dict[str, dict], vocab, max_lookups: int = 150,
                     stats["recovered"] += 1
                     break
         time.sleep(arxiv.POLITE_DELAY)
-    remaining = max(0, len(todo) - max_lookups)
+    remaining = max(0, len(todo) - stats["tried"])
     log(f"  abstracts: tried {stats['tried']}, recovered {stats['recovered']}, "
-        f"{remaining} still queued")
+        f"{remaining} still queued" + (" (stopped early: rate limited)"
+                                       if stats["rate_limited"] else ""))
     stats["remaining"] = remaining
     return stats
 
