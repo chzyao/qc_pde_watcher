@@ -12,6 +12,14 @@ docs/index.html
 docs/coverage_matrix.png
 docs/gap_trajectory.png
 
+# Build metadata, left behind by `pip install -e .`
+*.egg-info/
+.eggs/
+build/
+dist/
+.ci_venv/
+.ci2/
+
 __pycache__/
 *.py[cod]
 .venv/

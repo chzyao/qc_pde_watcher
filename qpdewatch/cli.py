@@ -112,15 +112,21 @@ def do_check(_args) -> None:
 def do_stats(_args) -> None:
     corpus = store.load_corpus()
     vocab = load_vocabularies()
-    rows = tag.build_rows(corpus, vocab,
-                          require_abstract=not args.include_abstractless)
+    # Always the published view: `stats` has no --include-abstractless flag, and
+    # the withheld queue is reported separately below.
+    rows = tag.build_rows(corpus, vocab)
     cfd = [r for r in rows if r["cfd_facing"]]
     print(f"records on file : {len(corpus)}")
-    print(f"pass screen     : {len(rows)}")
+    print(f"published rows  : {len(rows)}")
     print(f"CFD-facing      : {len(cfd)}")
     print(f"crossref matched: {sum(1 for r in rows if r['citations_crossref'] is not None)}")
     print(f"pending abstract: {len(tag.pending_abstract(corpus, vocab))}")
-    print(f"state           : {store.load_state()}")
+    # Compact: this goes into the GitHub step summary every week, and the raw
+    # state dict spills 31 query strings into it.
+    state = store.load_state()
+    failed = state.get("last_failed_queries", [])
+    print(f"last harvest    : {state.get('last_harvest', 'never')}"
+          + (f"  ({len(failed)} queries failed)" if failed else ""))
     print("\nby year (CFD-facing):")
     years: dict[int, int] = {}
     for r in cfd:
@@ -129,7 +135,13 @@ def do_stats(_args) -> None:
         print(f"  {y}  {'#' * years[y]} {years[y]}")
 
 
-def main(argv: list[str] | None = None) -> None:
+def build_parser() -> argparse.ArgumentParser:
+    """Construct the CLI parser.
+
+    Separate from main() so tests can enumerate the real subcommand list rather
+    than a hand-maintained copy of it — a list that drifts is how an untested
+    subcommand slips through.
+    """
     ap = argparse.ArgumentParser(prog="qpdewatch", description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -165,8 +177,11 @@ def main(argv: list[str] | None = None) -> None:
     add_harvest_args(p); add_discover_args(p); add_enrich_args(p); add_build_args(p)
     sub.add_parser("check", help="validate corpus integrity (exits 1 on problems)")
     sub.add_parser("stats", help="summarise what is on file")
+    return ap
 
-    args = ap.parse_args(argv)
+
+def main(argv: list[str] | None = None) -> None:
+    args = build_parser().parse_args(argv)
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     DOCS_DIR.mkdir(parents=True, exist_ok=True)
 
